@@ -1,4 +1,3 @@
-
 "use strict";
 
 const {
@@ -8,6 +7,7 @@ const {
 const EXAM_DATE = "2026-11-28";
 const DEFAULT_EXAM_ID = "jamb-2026-11-28";
 const DURATION_SECONDS = 50 * 60;
+const DURATION_MILLIS = DURATION_SECONDS * 1000;
 
 function normalizePhone(value) {
   return String(value || "").replace(/\D/g, "");
@@ -22,10 +22,8 @@ function validSubjects(subjects) {
     String(subject || "").trim().toLowerCase()
   );
 
-  return (
-    cleaned.every(Boolean) &&
-    new Set(cleaned).size === 4
-  );
+  return cleaned.every(Boolean) &&
+    new Set(cleaned).size === 4;
 }
 
 function toMillis(value) {
@@ -70,6 +68,7 @@ function getScheduleStartMillis(schedule) {
 
   const [hour, minute] = time24.split(":").map(Number);
 
+  // Saved schedule is WAT (UTC+1).
   return Date.UTC(2026, 10, 28, hour - 1, minute, 0);
 }
 
@@ -88,6 +87,54 @@ function getCandidateName(candidate) {
   ].filter(Boolean).join(" ").trim();
 }
 
+function candidateMatches(candidate, lookup) {
+  const digits = normalizePhone(lookup);
+  const registrationLookup = String(lookup)
+    .trim()
+    .toUpperCase();
+
+  const storedPhone = normalizePhone(
+    candidate.whatsappNumber
+  );
+
+  const storedRegistration = String(
+    candidate.registrationNumber || ""
+  ).trim().toUpperCase();
+
+  return (
+    (digits.length >= 8 && storedPhone === digits) ||
+    (
+      registrationLookup &&
+      storedRegistration === registrationLookup
+    )
+  );
+}
+
+function validSchedule(schedule) {
+  return Boolean(
+    schedule &&
+    schedule.batch &&
+    schedule.examDate === EXAM_DATE &&
+    (
+      !schedule.timeZone ||
+      schedule.timeZone === "Africa/Lagos"
+    )
+  );
+}
+
+function getEntryWindowSeconds() {
+  const configured = Number.parseInt(
+    process.env.CBT_START_WINDOW_SECONDS || "60",
+    10
+  );
+
+  if (!Number.isFinite(configured) || configured < 0) {
+    return 60;
+  }
+
+  return Math.min(configured, 300);
+}
+
 function respond(res, status, data) {
   res.setHeader("Cache-Control", "no-store, max-age=0");
   res.setHeader("Pragma", "no-cache");
@@ -100,13 +147,26 @@ function candidateResponse(candidate, schedule) {
     registrationNumber: candidate.registrationNumber,
     fullName: getCandidateName(candidate),
     jambSubjects: candidate.jambSubjects,
+
     schedule: {
       batch: schedule.batch,
       time: schedule.time || null,
+      time24: schedule.time24 || null,
       examDate: schedule.examDate,
       timeZone: schedule.timeZone || "Africa/Lagos"
     }
   };
+}
+
+function flagForReview(transaction, attemptRef, admin, reason) {
+  transaction.update(attemptRef, {
+    status: "review_required",
+    reviewReason: reason,
+    reviewRequiredAt:
+      admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt:
+      admin.firestore.FieldValue.serverTimestamp()
+  });
 }
 
 module.exports = async function handler(req, res) {
@@ -155,22 +215,8 @@ module.exports = async function handler(req, res) {
       .collection("jamb_registrations")
       .get();
 
-    const digits = normalizePhone(lookup);
-    const registrationLookup = lookup.toUpperCase();
-
     const matches = registrations.docs.filter(doc => {
-      const candidate = doc.data() || {};
-
-      const phoneMatches =
-        digits.length >= 8 &&
-        normalizePhone(candidate.whatsappNumber) === digits;
-
-      const registrationMatches =
-        String(candidate.registrationNumber || "")
-          .trim()
-          .toUpperCase() === registrationLookup;
-
-      return phoneMatches || registrationMatches;
+      return candidateMatches(doc.data() || {}, lookup);
     });
 
     if (matches.length === 0) {
@@ -205,7 +251,7 @@ module.exports = async function handler(req, res) {
     let outcome;
 
     await db.runTransaction(async transaction => {
-      // All reads happen before any writes.
+      // Read all documents before writing anything.
       const registrationSnapshot =
         await transaction.get(registrationRef);
 
@@ -224,8 +270,20 @@ module.exports = async function handler(req, res) {
       }
 
       const candidate = registrationSnapshot.data() || {};
+
+      // Revalidate identity using the latest registration.
+      if (!candidateMatches(candidate, lookup)) {
+        outcome = {
+          status: 409,
+          body: {
+            ok: false,
+            code: "REGISTRATION_CHANGED"
+          }
+        };
+        return;
+      }
+
       const fullName = getCandidateName(candidate);
-      const schedule = candidate.examSchedule || {};
 
       if (
         !candidate.registrationNumber ||
@@ -242,14 +300,9 @@ module.exports = async function handler(req, res) {
         return;
       }
 
-      if (
-        !schedule.batch ||
-        schedule.examDate !== EXAM_DATE ||
-        (
-          schedule.timeZone &&
-          schedule.timeZone !== "Africa/Lagos"
-        )
-      ) {
+      const schedule = candidate.examSchedule || {};
+
+      if (!validSchedule(schedule)) {
         outcome = {
           status: 422,
           body: {
@@ -275,9 +328,38 @@ module.exports = async function handler(req, res) {
 
       const now = Date.now();
 
-      // Existing attempts must never receive a new timer.
+      // The batch deadline is fixed and shared by everyone
+      // in that batch. It is NOT based on an individual click.
+      const batchDeadline = scheduledAt + DURATION_MILLIS;
+
+      // --------------------------------------------------
+      // EXISTING ATTEMPT: RESUME, EXPIRE OR BLOCK
+      // --------------------------------------------------
+
       if (attemptSnapshot.exists) {
         const existing = attemptSnapshot.data() || {};
+
+        if (
+          existing.attemptId !== attemptId ||
+          existing.examId !== examId ||
+          existing.candidateId !== registrationDoc.id
+        ) {
+          flagForReview(
+            transaction,
+            attemptRef,
+            admin,
+            "ATTEMPT_IDENTITY_MISMATCH"
+          );
+
+          outcome = {
+            status: 409,
+            body: {
+              ok: false,
+              code: "ATTEMPT_REQUIRES_ADMIN_REVIEW"
+            }
+          };
+          return;
+        }
 
         if (
           existing.status === "submitted" ||
@@ -294,67 +376,109 @@ module.exports = async function handler(req, res) {
         }
 
         if (existing.status === "in_progress") {
-          const deadline = toMillis(existing.deadlineAt);
+          const startedAt = toMillis(existing.startedAt);
+          const deadlineAt = toMillis(existing.deadlineAt);
+          const savedSchedule = toMillis(existing.scheduledAt);
 
-          if (deadline !== null && now < deadline) {
+          const timestampsValid =
+            startedAt !== null &&
+            deadlineAt !== null &&
+            savedSchedule !== null &&
+            savedSchedule === scheduledAt &&
+            startedAt >= scheduledAt &&
+            startedAt <= now &&
+            deadlineAt === batchDeadline;
+
+          if (!timestampsValid) {
+            flagForReview(
+              transaction,
+              attemptRef,
+              admin,
+              "INVALID_ATTEMPT_TIMESTAMPS"
+            );
+
             outcome = {
-              status: 200,
+              status: 409,
               body: {
-                ok: true,
-                code: "ATTEMPT_RESUME",
-                resumed: true,
-                attempt: {
-                  attemptId,
-                  status: existing.status,
-                  startedAt: new Date(
-                    toMillis(existing.startedAt)
-                  ).toISOString(),
-                  deadlineAt: new Date(deadline).toISOString(),
-                  durationSeconds: DURATION_SECONDS
-                },
-                candidate: candidateResponse(
-                  candidate,
-                  schedule
-                )
+                ok: false,
+                code: "ATTEMPT_REQUIRES_ADMIN_REVIEW"
               }
             };
             return;
           }
 
+          // Deadline reached: permanently expire this attempt.
+          if (now >= deadlineAt) {
+            transaction.update(attemptRef, {
+              status: "expired",
+              expiredAt:
+                admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt:
+                admin.firestore.FieldValue.serverTimestamp(),
+              expiryReason: "BATCH_DEADLINE_REACHED"
+            });
+
+            outcome = {
+              status: 409,
+              body: {
+                ok: false,
+                code: "ATTEMPT_ALREADY_USED"
+              }
+            };
+            return;
+          }
+
+          // Resume using the original deadline.
           outcome = {
-            status: 409,
+            status: 200,
             body: {
-              ok: false,
-              code: "ATTEMPT_TIME_EXPIRED"
+              ok: true,
+              code: "ATTEMPT_RESUME",
+              resumed: true,
+
+              attempt: {
+                attemptId,
+                status: "in_progress",
+                startedAt: new Date(startedAt).toISOString(),
+                deadlineAt: new Date(deadlineAt).toISOString(),
+                durationSeconds: DURATION_SECONDS
+              },
+
+              candidate: candidateResponse(
+                candidate,
+                schedule
+              )
             }
           };
           return;
+        }
+
+        // Do not silently replace unknown or flagged attempts.
+        if (existing.status !== "review_required") {
+          flagForReview(
+            transaction,
+            attemptRef,
+            admin,
+            "UNKNOWN_ATTEMPT_STATUS"
+          );
         }
 
         outcome = {
           status: 409,
           body: {
             ok: false,
-            code: "ATTEMPT_ALREADY_EXISTS"
+            code: "ATTEMPT_REQUIRES_ADMIN_REVIEW"
           }
         };
         return;
       }
 
-      // Entry window is still provisional.
-      const configuredWindow = Number.parseInt(
-        process.env.CBT_START_WINDOW_SECONDS || "60",
-        10
-      );
-
-      const windowSeconds =
-        Number.isFinite(configuredWindow) &&
-        configuredWindow >= 0
-          ? Math.min(configuredWindow, 300)
-          : 60;
+      // --------------------------------------------------
+      // NEW ATTEMPT: CHECK THE ORIGINAL ENTRY WINDOW
+      // --------------------------------------------------
 
       const entryEndsAt =
-        scheduledAt + windowSeconds * 1000;
+        scheduledAt + getEntryWindowSeconds() * 1000;
 
       if (now < scheduledAt) {
         outcome = {
@@ -373,22 +497,41 @@ module.exports = async function handler(req, res) {
           status: 403,
           body: {
             ok: false,
-            code: "ENTRY_WINDOW_CLOSED"
+            code: "ENTRY_WINDOW_CLOSED",
+            scheduledAt: new Date(scheduledAt).toISOString()
           }
         };
         return;
       }
 
+      if (now >= batchDeadline) {
+        outcome = {
+          status: 403,
+          body: {
+            ok: false,
+            code: "BATCH_DEADLINE_REACHED"
+          }
+        };
+        return;
+      }
+
+      // --------------------------------------------------
+      // CREATE THE ATTEMPT
+      // --------------------------------------------------
+
       const Timestamp = admin.firestore.Timestamp;
 
       const startedAt = Timestamp.fromMillis(now);
-      const deadlineAt = Timestamp.fromMillis(
-        now + DURATION_SECONDS * 1000
-      );
+
+      // IMPORTANT:
+      // The deadline is based on the saved batch schedule,
+      // not the candidate's individual start-click time.
+      const deadlineAt = Timestamp.fromMillis(batchDeadline);
 
       const attemptData = {
         attemptId,
         examId,
+
         candidateId: registrationDoc.id,
         registrationNumber: candidate.registrationNumber,
         fullName,
@@ -406,6 +549,8 @@ module.exports = async function handler(req, res) {
         durationSeconds: DURATION_SECONDS,
 
         submittedAt: null,
+        expiredAt: null,
+
         score: null,
         subjectScores: {},
 
@@ -413,7 +558,7 @@ module.exports = async function handler(req, res) {
         updatedAt: startedAt
       };
 
-      // Atomic creation prevents two devices starting separately.
+      // Atomic creation prevents duplicate starts.
       transaction.create(attemptRef, attemptData);
 
       outcome = {
@@ -422,6 +567,7 @@ module.exports = async function handler(req, res) {
           ok: true,
           code: "ATTEMPT_STARTED",
           resumed: false,
+
           attempt: {
             attemptId,
             status: "in_progress",
@@ -429,6 +575,7 @@ module.exports = async function handler(req, res) {
             deadlineAt: deadlineAt.toDate().toISOString(),
             durationSeconds: DURATION_SECONDS
           },
+
           candidate: candidateResponse(
             candidate,
             schedule
@@ -437,11 +584,7 @@ module.exports = async function handler(req, res) {
       };
     });
 
-    return respond(
-      res,
-      outcome.status,
-      outcome.body
-    );
+    return respond(res, outcome.status, outcome.body);
 
   } catch (error) {
     console.error("Attempt start failed:", error);
