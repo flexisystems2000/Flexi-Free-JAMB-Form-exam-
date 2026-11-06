@@ -1,1 +1,19 @@
-
+{
+  "name": "flexi-free-jamb-form-exam",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Flexi Educational Consult Free JAMB Form CBT Platform",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "check": "node --check api/health.js && node --check api/cbt/verify.js && node --check lib/firebase-admin.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.5.0"
+  },
+  "devDependencies": {
+    "vercel": "^48.0.0"
+  }
+}
