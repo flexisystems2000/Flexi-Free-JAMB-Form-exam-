@@ -1,17 +1,24 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#15803d">
+
   <title>Examination Instructions | Flexi Educational Consult</title>
+
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
+
     :root {
       font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
       color: #172033;
       background: #f0fdf4;
     }
+
     body {
       margin: 0;
       min-height: 100vh;
@@ -19,6 +26,7 @@
       place-items: center;
       padding: 16px;
     }
+
     main {
       width: 100%;
       max-width: 620px;
@@ -28,15 +36,29 @@
       box-shadow: 0 12px 36px #12331b12;
       overflow: hidden;
     }
+
     header {
       background: linear-gradient(135deg, #16a34a, #166534);
       color: #fff;
       text-align: center;
       padding: 25px 18px;
     }
-    header h1 { font-size: 1.2rem; margin: 0 0 6px; }
-    header p { margin: 0; font-size: .88rem; opacity: .94; }
-    section { padding: 22px; }
+
+    header h1 {
+      font-size: 1.2rem;
+      margin: 0 0 6px;
+    }
+
+    header p {
+      margin: 0;
+      font-size: .88rem;
+      opacity: .94;
+    }
+
+    section {
+      padding: 22px;
+    }
+
     .candidate {
       padding: 12px 14px;
       margin-bottom: 18px;
@@ -46,25 +68,33 @@
       font-size: .88rem;
       line-height: 1.6;
     }
+
     h2 {
       margin: 0 0 5px;
       color: #166534;
       font-size: 1.05rem;
       text-align: center;
     }
+
     .subtitle {
       text-align: center;
       margin: 0 0 18px;
       color: #64748b;
       font-size: .82rem;
     }
-    ul { padding-left: 21px; margin: 0; }
+
+    ul {
+      padding-left: 21px;
+      margin: 0;
+    }
+
     li {
       padding-left: 3px;
       margin: 0 0 11px;
       font-size: .91rem;
       line-height: 1.55;
     }
+
     .declaration {
       margin-top: 22px;
       padding: 16px;
@@ -72,16 +102,19 @@
       border-radius: 12px;
       background: #f8fafc;
     }
+
     .declaration h3 {
       margin: 0 0 9px;
       font-size: .98rem;
       color: #166534;
     }
+
     .declaration p {
       margin: 0;
       font-size: .9rem;
       line-height: 1.6;
     }
+
     .ack {
       display: flex;
       align-items: flex-start;
@@ -91,6 +124,7 @@
       line-height: 1.5;
       cursor: pointer;
     }
+
     .ack input {
       width: 19px;
       height: 19px;
@@ -98,6 +132,7 @@
       flex: 0 0 auto;
       accent-color: #15803d;
     }
+
     button {
       width: 100%;
       border: 0;
@@ -110,7 +145,12 @@
       margin-top: 17px;
       cursor: pointer;
     }
-    button:disabled { opacity: .45; cursor: not-allowed; }
+
+    button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
     #status {
       display: none;
       margin-top: 14px;
@@ -121,8 +161,31 @@
       font-size: .88rem;
       line-height: 1.5;
     }
-    #status.show { display: block; }
-    #status.error { background: #fef2f2; color: #991b1b; }
+
+    #status.show {
+      display: block;
+    }
+
+    #status.error {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .device-success {
+      display: none;
+      margin-top: 14px;
+      padding: 13px;
+      border-radius: 10px;
+      background: #dcfce7;
+      color: #166534;
+      font-size: .9rem;
+      line-height: 1.5;
+    }
+
+    .device-success.show {
+      display: block;
+    }
+
     footer {
       text-align: center;
       padding: 14px;
@@ -131,135 +194,870 @@
       color: #64748b;
       font-size: .75rem;
     }
+
+    /* DEVICE CHECK MODAL */
+
+    .device-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(15, 23, 42, .78);
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .device-modal.active {
+      display: flex;
+    }
+
+    .device-card {
+      background: #fff;
+      width: 100%;
+      max-width: 520px;
+      max-height: 94vh;
+      overflow-y: auto;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 20px 60px #0004;
+    }
+
+    .device-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .device-heading h2 {
+      text-align: left;
+      margin: 0;
+      font-size: 1.15rem;
+    }
+
+    .modal-close {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      margin: 0;
+      border-radius: 50%;
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 22px;
+      flex: 0 0 auto;
+    }
+
+    .device-description {
+      color: #64748b;
+      font-size: .88rem;
+      line-height: 1.55;
+      margin: 0 0 14px;
+    }
+
+    .camera-preview {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      background: #0f172a;
+      border-radius: 12px;
+      margin: 12px 0;
+    }
+
+    .device-status {
+      padding: 12px;
+      margin: 9px 0;
+      border-radius: 9px;
+      background: #f1f5f9;
+      color: #334155;
+      font-size: .88rem;
+      line-height: 1.45;
+    }
+
+    .device-status.success {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .device-status.error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .device-status.checking {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .device-button {
+      margin-top: 10px;
+    }
+
+    .device-button.secondary {
+      background: #64748b;
+    }
+
+    .device-note {
+      margin-top: 13px;
+      padding: 11px;
+      background: #fffbeb;
+      color: #92400e;
+      border-radius: 9px;
+      font-size: .8rem;
+      line-height: 1.5;
+    }
+
     @media (max-width: 420px) {
-      section { padding: 17px; }
-      li { font-size: .88rem; margin-bottom: 10px; }
+      section {
+        padding: 17px;
+      }
+
+      li {
+        font-size: .88rem;
+        margin-bottom: 10px;
+      }
+
+      .device-card {
+        padding: 16px;
+      }
     }
   </style>
 </head>
+
 <body>
+
   <main>
+
     <header>
       <h1>Flexi Educational Consult</h1>
       <p>Free JAMB Form Initiative · CBT Portal</p>
     </header>
 
     <section>
+
       <div class="candidate" id="candidateDetails">
         Verifying your examination details...
       </div>
 
       <h2>EXAMINATION INSTRUCTIONS</h2>
-      <p class="subtitle">Candidates are required to observe the following rules:</p>
+
+      <p class="subtitle">
+        Candidates are required to observe the following rules:
+      </p>
 
       <ul>
-        <li>The examination duration is <strong>50 minutes</strong>. Candidates must manage their time effectively.</li>
-        <li>Candidates must complete the examination independently without assistance from another person.</li>
-        <li>Impersonation, communication with others, collusion and all forms of examination malpractice are strictly prohibited.</li>
-        <li>Candidates must carefully read each question and select the most appropriate answer.</li>
-        <li>Candidates are advised to review their answers before submitting, where time permits.</li>
-        <li>Candidates must remain within the examination environment throughout the examination.</li>
-        <li>The use of unauthorised assistance or materials is prohibited.</li>
-        <li>Candidates are expected to maintain a stable internet connection throughout the examination.</li>
-        <li>Camera and microphone monitoring will be used for examination supervision and integrity.</li>
-        <li>Candidates must remain visible and maintain an appropriate examination environment.</li>
-        <li>Any suspicious activity or violation of examination rules may be reported to the examination administrators for review.</li>
-        <li>Candidates should not refresh or close the examination page unnecessarily.</li>
-        <li>Temporary internet interruptions do not extend the official examination time.</li>
-        <li>The examination will be automatically submitted when the official time expires.</li>
-        <li>Once submitted, an examination cannot be restarted by the candidate.</li>
+        <li>
+          The examination duration is <strong>50 minutes</strong>.
+          Candidates must manage their time effectively.
+        </li>
+
+        <li>
+          Candidates must complete the examination independently
+          without assistance from another person.
+        </li>
+
+        <li>
+          Impersonation, communication with others, collusion and
+          all forms of examination malpractice are strictly prohibited.
+        </li>
+
+        <li>
+          Candidates must carefully read each question and select
+          the most appropriate answer.
+        </li>
+
+        <li>
+          Candidates are advised to review their answers before
+          submitting, where time permits.
+        </li>
+
+        <li>
+          Candidates must remain within the examination environment
+          throughout the examination.
+        </li>
+
+        <li>
+          The use of unauthorised assistance or materials is prohibited.
+        </li>
+
+        <li>
+          Candidates are expected to maintain a stable internet
+          connection throughout the examination.
+        </li>
+
+        <li>
+          Camera and microphone monitoring will be used for
+          examination supervision and integrity.
+        </li>
+
+        <li>
+          Candidates must remain visible and maintain an appropriate
+          examination environment.
+        </li>
+
+        <li>
+          Any suspicious activity or violation of examination rules
+          may be reported to the examination administrators for review.
+        </li>
+
+        <li>
+          Candidates should not refresh or close the examination
+          page unnecessarily.
+        </li>
+
+        <li>
+          Temporary internet interruptions do not extend the official
+          examination time.
+        </li>
+
+        <li>
+          The examination will be automatically submitted when the
+          official time expires.
+        </li>
+
+        <li>
+          Once submitted, an examination cannot be restarted by
+          the candidate.
+        </li>
       </ul>
 
       <div class="declaration">
+
         <h3>CANDIDATE ACKNOWLEDGEMENT</h3>
-        <p>By proceeding, I confirm that I have read and understood the examination instructions and agree to abide by all the rules and regulations of Flexi Educational Consult. I understand that violations may result in appropriate examination or administrative action.</p>
+
+        <p>
+          By proceeding, I confirm that I have read and understood
+          the examination instructions and agree to abide by all
+          the rules and regulations of Flexi Educational Consult.
+          I understand that violations may result in appropriate
+          examination or administrative action.
+        </p>
+
       </div>
 
       <label class="ack">
+
         <input type="checkbox" id="acknowledge">
-        <span>I have read, understood and agree to abide by the examination instructions and regulations.</span>
+
+        <span>
+          I have read, understood and agree to abide by the
+          examination instructions and regulations.
+        </span>
+
       </label>
 
       <button id="confirmButton" type="button" disabled>
-        Confirm Acknowledgement
+        Continue to Device Check
       </button>
+
       <div id="status" role="status" aria-live="polite"></div>
+
+      <div class="device-success" id="deviceSuccess">
+        <strong>Device verification successful.</strong>
+        Your camera and microphone have passed the initial checks.
+        Please wait for the next examination stage.
+      </div>
+
     </section>
 
-    <footer>© Flexi Educational Consult. All rights reserved.</footer>
+    <footer>
+      © Flexi Educational Consult. All rights reserved.
+    </footer>
+
   </main>
 
+
+  <!-- DEVICE CHECK POPUP MODAL -->
+
+  <div
+    class="device-modal"
+    id="deviceModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="deviceModalTitle"
+  >
+
+    <div class="device-card">
+
+      <div class="device-heading">
+
+        <h2 id="deviceModalTitle">
+          Camera & Microphone Verification
+        </h2>
+
+        <button
+          type="button"
+          class="modal-close"
+          id="closeModalButton"
+          aria-label="Close device verification"
+        >
+          &times;
+        </button>
+
+      </div>
+
+      <p class="device-description">
+        Your camera and microphone must be connected and accessible
+        before you can proceed to the examination.
+        Please grant the necessary browser permissions.
+      </p>
+
+      <video
+        id="cameraPreview"
+        class="camera-preview"
+        autoplay
+        muted
+        playsinline
+      ></video>
+
+      <div class="device-status" id="cameraStatus">
+        Camera: Not checked
+      </div>
+
+      <div class="device-status" id="micStatus">
+        Microphone: Not checked
+      </div>
+
+      <button
+        type="button"
+        class="device-button"
+        id="checkDevicesBtn"
+      >
+        Start Device Check
+      </button>
+
+      <button
+        type="button"
+        class="device-button"
+        id="proceedExamBtn"
+        disabled
+      >
+        Confirm Device Check
+      </button>
+
+      <button
+        type="button"
+        class="device-button secondary"
+        id="cancelModalButton"
+      >
+        Cancel
+      </button>
+
+      <div class="device-note">
+        <strong>Important:</strong> Keep your camera and microphone
+        connected throughout the examination. If either device
+        disconnects during the examination, you will receive a warning
+        and the examination administrator will be notified.
+        Your examination timer will continue running.
+      </div>
+
+    </div>
+
+  </div>
+
+
   <script>
-    const candidateDetails = document.getElementById("candidateDetails");
-    const acknowledge = document.getElementById("acknowledge");
-    const confirmButton = document.getElementById("confirmButton");
-    const statusBox = document.getElementById("status");
-    const lookup = sessionStorage.getItem("cbt_lookup");
+    const candidateDetails =
+      document.getElementById("candidateDetails");
+
+    const acknowledge =
+      document.getElementById("acknowledge");
+
+    const confirmButton =
+      document.getElementById("confirmButton");
+
+    const statusBox =
+      document.getElementById("status");
+
+    const deviceModal =
+      document.getElementById("deviceModal");
+
+    const cameraPreview =
+      document.getElementById("cameraPreview");
+
+    const cameraStatus =
+      document.getElementById("cameraStatus");
+
+    const micStatus =
+      document.getElementById("micStatus");
+
+    const checkDevicesBtn =
+      document.getElementById("checkDevicesBtn");
+
+    const proceedExamBtn =
+      document.getElementById("proceedExamBtn");
+
+    const deviceSuccess =
+      document.getElementById("deviceSuccess");
+
+    const lookup =
+      sessionStorage.getItem("cbt_lookup");
+
+
+    let deviceStream = null;
+    let deviceCheckPassed = false;
+    let verificationInProgress = false;
+
+
+    // GENERAL STATUS MESSAGE
 
     function showStatus(message, isError = false) {
       statusBox.textContent = message;
-      statusBox.className = "show" + (isError ? " error" : "");
+
+      statusBox.className =
+        "show" + (isError ? " error" : "");
     }
 
+
+    // CANDIDATE ACKNOWLEDGEMENT
+
     acknowledge.addEventListener("change", function() {
-      confirmButton.disabled = !acknowledge.checked;
+      confirmButton.disabled =
+        !acknowledge.checked ||
+        acknowledge.disabled ||
+        !sessionStorage.getItem("cbt_candidate_verified");
     });
 
+
+    // VERIFY CANDIDATE
+
     async function verifyCandidate() {
+
       if (!lookup) {
+
         candidateDetails.textContent =
           "Your verification session was not found. Please return to the verification page.";
+
         showStatus(
           "Please go back and verify your registration before continuing.",
           true
         );
+
         confirmButton.disabled = true;
         acknowledge.disabled = true;
+
         return;
       }
 
+      if (verificationInProgress) return;
+
+      verificationInProgress = true;
+
       try {
+
         const response = await fetch("/api/cbt/verify", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ whatsappNumber: lookup })
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            whatsappNumber: lookup
+          })
         });
 
         const result = await response.json();
 
-        if (!response.ok || !result.ok || !result.candidate || !result.schedule) {
-          throw new Error(result.code || "VERIFICATION_FAILED");
+        if (
+          !response.ok ||
+          !result.ok ||
+          !result.candidate ||
+          !result.schedule
+        ) {
+          throw new Error(
+            result.code || "VERIFICATION_FAILED"
+          );
         }
 
         candidateDetails.textContent =
           "Candidate: " + result.candidate.fullName +
-          " · Registration: " + result.candidate.registrationNumber +
+          " · Registration: " +
+          result.candidate.registrationNumber +
           " · Batch: " + result.schedule.batch;
+
+        sessionStorage.setItem(
+          "cbt_candidate_verified",
+          "true"
+        );
+
+        confirmButton.disabled =
+          !acknowledge.checked;
+
       } catch (error) {
+
+        console.error("Candidate verification failed:", error);
+
         candidateDetails.textContent =
           "Candidate verification could not be completed.";
+
         showStatus(
-          "We could not re-verify your details. Return to the previous page and try again.",
+          "We could not verify your details. Return to the previous page and try again.",
           true
         );
+
         confirmButton.disabled = true;
         acknowledge.disabled = true;
+
+      } finally {
+
+        verificationInProgress = false;
+
       }
     }
 
-    confirmButton.addEventListener("click", function() {
-      if (!acknowledge.checked || acknowledge.disabled) return;
 
-      sessionStorage.setItem("cbt_instructions_acknowledged", "true");
-      acknowledge.disabled = true;
-      confirmButton.disabled = true;
-      confirmButton.textContent = "Acknowledgement Confirmed";
-      showStatus(
-        "Your acknowledgement is confirmed for this step. Please wait for the next examination stage."
+    // OPEN DEVICE CHECK MODAL
+
+    function openDeviceModal() {
+
+      deviceModal.classList.add("active");
+
+      document.body.style.overflow = "hidden";
+
+    }
+
+
+    // STOP CAMERA AND MICROPHONE
+
+    function stopDeviceStream() {
+
+      if (deviceStream) {
+
+        deviceStream.getTracks().forEach(track => {
+          track.removeEventListener("ended", handleDeviceDisconnect);
+          track.stop();
+        });
+
+        deviceStream = null;
+
+      }
+
+      cameraPreview.srcObject = null;
+
+    }
+
+
+    // DEVICE DISCONNECT HANDLER
+
+    function handleDeviceDisconnect() {
+
+      deviceCheckPassed = false;
+
+      proceedExamBtn.disabled = true;
+
+      cameraStatus.textContent =
+        "Camera: Device disconnected. Please check again.";
+
+      micStatus.textContent =
+        "Microphone: Device disconnected. Please check again.";
+
+      cameraStatus.className =
+        "device-status error";
+
+      micStatus.className =
+        "device-status error";
+
+      sessionStorage.removeItem(
+        "cbt_device_check_passed"
       );
+
+      stopDeviceStream();
+
+    }
+
+
+    // CLOSE DEVICE MODAL
+
+    function closeDeviceModal() {
+
+      deviceModal.classList.remove("active");
+
+      document.body.style.overflow = "";
+
+      // If the candidate has not passed the check,
+      // release any camera and microphone permissions.
+
+      if (!deviceCheckPassed) {
+
+        stopDeviceStream();
+
+        proceedExamBtn.disabled = true;
+
+      }
+
+    }
+
+
+    // INITIAL CAMERA AND MICROPHONE CHECK
+
+    async function checkDevices() {
+
+      if (!navigator.mediaDevices ||
+          !navigator.mediaDevices.getUserMedia) {
+
+        showDeviceError(
+          "Your browser does not support camera and microphone access. Please use a supported browser over HTTPS."
+        );
+
+        return;
+
+      }
+
+      checkDevicesBtn.disabled = true;
+      proceedExamBtn.disabled = true;
+
+      deviceCheckPassed = false;
+
+      sessionStorage.removeItem(
+        "cbt_device_check_passed"
+      );
+
+      cameraStatus.textContent =
+        "Camera: Requesting permission...";
+
+      micStatus.textContent =
+        "Microphone: Requesting permission...";
+
+      cameraStatus.className =
+        "device-status checking";
+
+      micStatus.className =
+        "device-status checking";
+
+      try {
+
+        stopDeviceStream();
+
+        deviceStream =
+          await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: "user"
+            },
+            audio: true
+          });
+
+        const videoTrack =
+          deviceStream.getVideoTracks()[0];
+
+        const audioTrack =
+          deviceStream.getAudioTracks()[0];
+
+        const cameraPassed =
+          videoTrack &&
+          videoTrack.readyState === "live" &&
+          videoTrack.enabled;
+
+        const microphonePassed =
+          audioTrack &&
+          audioTrack.readyState === "live" &&
+          audioTrack.enabled;
+
+        if (!cameraPassed || !microphonePassed) {
+
+          throw new Error(
+            "Camera or microphone could not be verified."
+          );
+
+        }
+
+        cameraPreview.srcObject = deviceStream;
+
+        await cameraPreview.play();
+
+        cameraStatus.textContent =
+          "Camera: Connected successfully";
+
+        cameraStatus.className =
+          "device-status success";
+
+        micStatus.textContent =
+          "Microphone: Connected successfully";
+
+        micStatus.className =
+          "device-status success";
+
+
+        // Listen for device disconnections.
+
+        deviceStream.getTracks().forEach(track => {
+
+          track.addEventListener(
+            "ended",
+            handleDeviceDisconnect
+          );
+
+        });
+
+
+        deviceCheckPassed = true;
+
+        proceedExamBtn.disabled = false;
+
+      } catch (error) {
+
+        console.error("Device check failed:", error);
+
+        deviceCheckPassed = false;
+
+        sessionStorage.removeItem(
+          "cbt_device_check_passed"
+        );
+
+        cameraStatus.textContent =
+          "Camera: Verification failed";
+
+        micStatus.textContent =
+          "Microphone: Verification failed";
+
+        cameraStatus.className =
+          "device-status error";
+
+        micStatus.className =
+          "device-status error";
+
+        stopDeviceStream();
+
+        alert(
+          "Unable to access your camera and microphone. Please grant both permissions and try again."
+        );
+
+      } finally {
+
+        checkDevicesBtn.disabled = false;
+
+      }
+
+    }
+
+
+    function showDeviceError(message) {
+
+      cameraStatus.textContent = message;
+      micStatus.textContent = message;
+
+      cameraStatus.className =
+        "device-status error";
+
+      micStatus.className =
+        "device-status error";
+
+    }
+
+
+    // CONFIRM SUCCESSFUL DEVICE CHECK
+
+    function confirmDeviceCheck() {
+
+      if (
+        !deviceCheckPassed ||
+        !deviceStream ||
+        !deviceStream.getVideoTracks().some(
+          track => track.readyState === "live" && track.enabled
+        ) ||
+        !deviceStream.getAudioTracks().some(
+          track => track.readyState === "live" && track.enabled
+        )
+      ) {
+
+        alert(
+          "Your camera and microphone must both be connected before continuing."
+        );
+
+        handleDeviceDisconnect();
+
+        return;
+
+      }
+
+      sessionStorage.setItem(
+        "cbt_device_check_passed",
+        "true"
+      );
+
+      deviceSuccess.classList.add("show");
+
+      confirmButton.textContent =
+        "Device Check Completed";
+
+      confirmButton.disabled = true;
+
+      closeDeviceModal();
+
+    }
+
+
+    // BUTTON EVENTS
+
+    confirmButton.addEventListener("click", function() {
+
+      if (
+        !acknowledge.checked ||
+        acknowledge.disabled ||
+        !sessionStorage.getItem("cbt_candidate_verified")
+      ) {
+        return;
+      }
+
+      sessionStorage.setItem(
+        "cbt_instructions_acknowledged",
+        "true"
+      );
+
+      acknowledge.disabled = true;
+
+      confirmButton.disabled = true;
+
+      openDeviceModal();
+
     });
 
+
+    checkDevicesBtn.addEventListener(
+      "click",
+      checkDevices
+    );
+
+
+    proceedExamBtn.addEventListener(
+      "click",
+      confirmDeviceCheck
+    );
+
+
+    document.getElementById(
+      "closeModalButton"
+    ).addEventListener("click", closeDeviceModal);
+
+
+    document.getElementById(
+      "cancelModalButton"
+    ).addEventListener("click", closeDeviceModal);
+
+
+    // CLOSE MODAL WHEN BACKGROUND IS CLICKED
+
+    deviceModal.addEventListener("click", function(event) {
+
+      if (event.target === deviceModal) {
+        closeDeviceModal();
+      }
+
+    });
+
+
+    // RELEASE DEVICES WHEN PAGE IS LEFT
+
+    window.addEventListener("pagehide", function() {
+      stopDeviceStream();
+    });
+
+
+    // START CANDIDATE VERIFICATION
+
     verifyCandidate();
+
   </script>
+
 </body>
 </html>
