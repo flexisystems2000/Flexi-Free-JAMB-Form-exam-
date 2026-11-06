@@ -4,22 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#15803d">
-
   <title>Flexi Educational Consult | CBT Portal</title>
-
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     :root {
-      font-family: Inter, system-ui, -apple-system,
-        "Segoe UI", sans-serif;
-
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
       color: #172033;
       background: #f0fdf4;
     }
-
     body {
       margin: 0;
       min-height: 100vh;
@@ -27,7 +19,6 @@
       place-items: center;
       padding: 16px;
     }
-
     main {
       width: 100%;
       max-width: 460px;
@@ -37,36 +28,21 @@
       box-shadow: 0 12px 36px #12331b12;
       overflow: hidden;
     }
-
     header {
       background: linear-gradient(135deg, #16a34a, #166534);
       color: white;
       text-align: center;
       padding: 28px 20px;
     }
-
-    header h1 {
-      font-size: 1.3rem;
-      margin: 0 0 7px;
-    }
-
-    header p {
-      margin: 0;
-      font-size: .9rem;
-      opacity: .92;
-    }
-
-    section {
-      padding: 22px;
-    }
-
+    header h1 { font-size: 1.3rem; margin: 0 0 7px; }
+    header p { margin: 0; font-size: .9rem; opacity: .92; }
+    section { padding: 22px; }
     label {
       display: block;
       font-weight: 650;
       font-size: .92rem;
       margin-bottom: 8px;
     }
-
     input {
       width: 100%;
       padding: 14px;
@@ -76,12 +52,10 @@
       font-size: 1rem;
       outline: none;
     }
-
     input:focus {
       border-color: #16a34a;
       box-shadow: 0 0 0 3px #16a34a20;
     }
-
     button {
       width: 100%;
       border: 0;
@@ -94,12 +68,11 @@
       margin-top: 14px;
       cursor: pointer;
     }
-
-    button:disabled {
-      opacity: .6;
-      cursor: wait;
+    button:disabled { opacity: .6; cursor: wait; }
+    #continueButton {
+      display: none;
+      background: #166534;
     }
-
     #message {
       display: none;
       margin-top: 16px;
@@ -108,21 +81,9 @@
       font-size: .9rem;
       line-height: 1.5;
     }
-
-    #message.show {
-      display: block;
-    }
-
-    #message.error {
-      background: #fef2f2;
-      color: #991b1b;
-    }
-
-    #message.success {
-      background: #f0fdf4;
-      color: #166534;
-    }
-
+    #message.show { display: block; }
+    #message.error { background: #fef2f2; color: #991b1b; }
+    #message.success { background: #f0fdf4; color: #166534; }
     #candidate {
       display: none;
       margin-top: 16px;
@@ -131,25 +92,14 @@
       border-radius: 10px;
       background: #f8fff9;
     }
-
-    #candidate h2 {
-      font-size: 1rem;
-      margin: 0 0 10px;
-    }
-
-    #candidate p {
-      margin: 7px 0;
-      font-size: .9rem;
-      line-height: 1.5;
-    }
-
+    #candidate h2 { font-size: 1rem; margin: 0 0 10px; }
+    #candidate p { margin: 7px 0; font-size: .9rem; line-height: 1.5; }
     .note {
       font-size: .78rem;
       color: #64748b;
       line-height: 1.6;
       margin: 17px 0 0;
     }
-
     footer {
       text-align: center;
       padding: 14px;
@@ -160,24 +110,16 @@
     }
   </style>
 </head>
-
 <body>
-
   <main>
-
     <header>
       <h1>Flexi Educational Consult</h1>
       <p>Free JAMB Form Initiative · CBT Portal</p>
     </header>
 
     <section>
-
       <form id="verifyForm">
-
-        <label for="lookup">
-          WhatsApp number or registration number
-        </label>
-
+        <label for="lookup">WhatsApp number or registration number</label>
         <input
           id="lookup"
           name="lookup"
@@ -186,68 +128,42 @@
           maxlength="40"
           placeholder="Enter your registered details"
         >
-
         <button id="verifyButton" type="submit">
           Verify Examination Eligibility
         </button>
-
       </form>
 
       <div id="message" role="status" aria-live="polite"></div>
 
       <div id="candidate">
-
         <h2>Registration verified</h2>
-
-        <p>
-          <strong>Name:</strong>
-          <span id="candidateName"></span>
-        </p>
-
-        <p>
-          <strong>Registration:</strong>
-          <span id="candidateReg"></span>
-        </p>
-
-        <p>
-          <strong>Exam date:</strong>
-          <span id="examDate"></span>
-        </p>
-
-        <p>
-          <strong>Batch:</strong>
-          <span id="examBatch"></span>
-        </p>
-
-        <p>
-          <strong>Subjects:</strong>
-          <span id="examSubjects"></span>
-        </p>
-
+        <p><strong>Name:</strong> <span id="candidateName"></span></p>
+        <p><strong>Registration:</strong> <span id="candidateReg"></span></p>
+        <p><strong>Exam date:</strong> <span id="examDate"></span></p>
+        <p><strong>Batch:</strong> <span id="examBatch"></span></p>
+        <p><strong>Subjects:</strong> <span id="examSubjects"></span></p>
       </div>
+
+      <button id="continueButton" type="button">
+        Continue to Examination Instructions
+      </button>
 
       <p class="note">
         Your registered details and saved examination schedule
         are checked against the official records. Your assigned
         subjects and batch cannot be changed from this page.
       </p>
-
     </section>
 
-    <footer>
-      © Flexi Educational Consult. All rights reserved.
-    </footer>
-
+    <footer>© Flexi Educational Consult. All rights reserved.</footer>
   </main>
 
   <script>
     const form = document.getElementById("verifyForm");
-
     const button = document.getElementById("verifyButton");
-
     const message = document.getElementById("message");
-
     const candidateBox = document.getElementById("candidate");
+    const continueButton = document.getElementById("continueButton");
 
     function showMessage(text, type) {
       message.textContent = text;
@@ -257,124 +173,95 @@
     const errorMessages = {
       CANDIDATE_NOT_FOUND:
         "No matching registration was found. Check your details and try again.",
-
       AMBIGUOUS_CANDIDATE:
         "More than one registration matched. Please contact the examination administrator.",
-
       INCOMPLETE_REGISTRATION:
         "Your registration record is incomplete. Please contact support.",
-
       INVALID_OR_MISSING_SCHEDULE:
         "Your examination schedule is missing or invalid. Please contact support.",
-
       INVALID_SCHEDULE_TIME:
         "Your saved examination time could not be validated. Please contact support.",
-
       TOO_EARLY:
         "Your assigned examination time has not started yet.",
-
       ENTRY_WINDOW_CLOSED:
         "Your examination entry window has closed. Please contact the administrator.",
-
       ATTEMPT_ALREADY_USED:
         "An examination attempt has already been submitted or expired.",
-
       ATTEMPT_ALREADY_EXISTS:
         "An examination attempt already exists. Please contact the administrator.",
-
       SERVICE_NOT_CONFIGURED:
         "The examination service is not configured yet. Please try again later.",
-
       VERIFICATION_FAILED:
         "We could not verify your record right now. Please try again."
     };
 
+    continueButton.addEventListener("click", function() {
+      const lookup = document.getElementById("lookup").value.trim();
+      if (!lookup || continueButton.style.display === "none") return;
+      sessionStorage.setItem("cbt_lookup", lookup);
+      window.location.href = "instructions.html";
+    });
+
     form.addEventListener("submit", async function(event) {
       event.preventDefault();
 
-      const lookup = document
-        .getElementById("lookup")
-        .value
-        .trim();
-
+      const lookup = document.getElementById("lookup").value.trim();
       if (!lookup) return;
 
       button.disabled = true;
       button.textContent = "Checking official records...";
-
       message.className = "";
       candidateBox.style.display = "none";
+      continueButton.style.display = "none";
+      sessionStorage.removeItem("cbt_lookup");
 
       try {
-
         const response = await fetch("/api/cbt/verify", {
           method: "POST",
-
-          headers: {
-            "Content-Type": "application/json"
-          },
-
-          body: JSON.stringify({
-            whatsappNumber: lookup
-          })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ whatsappNumber: lookup })
         });
 
         const result = await response.json();
 
         if (!response.ok || !result.ok) {
-
           showMessage(
             errorMessages[result.code] ||
             "Verification could not be completed. Please try again.",
             "error"
           );
-
           return;
         }
 
         document.getElementById("candidateName").textContent =
           result.candidate.fullName;
-
         document.getElementById("candidateReg").textContent =
           result.candidate.registrationNumber;
-
         document.getElementById("examDate").textContent =
           result.schedule.examDate;
-
         document.getElementById("examBatch").textContent =
           result.schedule.batch +
-          (
-            result.schedule.time
-              ? " · " + result.schedule.time
-              : ""
-          );
-
+          (result.schedule.time ? " · " + result.schedule.time : "");
         document.getElementById("examSubjects").textContent =
           result.candidate.jambSubjects.join(", ");
 
         candidateBox.style.display = "block";
+        continueButton.style.display = "block";
 
         showMessage(
-          "Your registration and saved examination schedule have been verified. The next examination stage is not enabled yet.",
+          "Your registration and saved examination schedule have been verified. Proceed to read the official examination instructions.",
           "success"
         );
-
       } catch (error) {
-
         showMessage(
           "Network error. Check your connection and try again.",
           "error"
         );
-
       } finally {
-
         button.disabled = false;
-
-        button.textContent =
-          "Verify Examination Eligibility";
+        button.textContent = "Verify Examination Eligibility";
       }
     });
   </script>
-
 </body>
 </html>
