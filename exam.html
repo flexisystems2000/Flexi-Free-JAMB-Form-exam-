@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -155,10 +154,7 @@ main {
   overflow-wrap:anywhere;
   margin-bottom:18px;
 }
-.options {
-  display:grid;
-  gap:10px;
-}
+.options { display:grid; gap:10px; }
 .option {
   display:flex;
   gap:10px;
@@ -207,13 +203,17 @@ main {
 }
 .legend span { display:flex; align-items:center; gap:5px; }
 .dot {
-  width:10px;height:10px;border-radius:3px;
+  width:10px;
+  height:10px;
+  border-radius:3px;
   display:inline-block;
 }
 .dot.answered { background:#16a34a; }
 .dot.current { background:#2563eb; }
-.dot.unanswered { background:#e5e7eb; border:1px solid #9ca3af; }
-
+.dot.unanswered {
+  background:#e5e7eb;
+  border:1px solid #9ca3af;
+}
 .question-grid {
   display:grid;
   grid-template-columns:repeat(5,minmax(0,1fr));
@@ -227,9 +227,15 @@ main {
   font-size:12px;
   font-weight:700;
 }
-.q-number.answered { background:#dcfce7; border-color:#16a34a; }
-.q-number.current { background:#2563eb; color:white; border-color:#2563eb; }
-
+.q-number.answered {
+  background:#dcfce7;
+  border-color:#16a34a;
+}
+.q-number.current {
+  background:#2563eb;
+  color:white;
+  border-color:#2563eb;
+}
 .sidebar-actions {
   display:grid;
   gap:9px;
@@ -334,7 +340,8 @@ main {
   box-shadow:0 5px 25px #0001;
 }
 .spinner {
-  width:35px;height:35px;
+  width:35px;
+  height:35px;
   border:4px solid #dcfce7;
   border-top-color:var(--green);
   border-radius:50%;
@@ -371,7 +378,8 @@ main {
 
 <header>
   <div class="header-top">
-    <div class="brand">FLEXI EDUCATIONAL CONSULT<br>
+    <div class="brand">
+      FLEXI EDUCATIONAL CONSULT<br>
       <small>FREE JAMB FORM INITIATIVE · CBT</small>
     </div>
     <div class="timer-box">
@@ -442,7 +450,9 @@ main {
 
       <div class="camera-box">
         <video id="cameraPreview" autoplay muted playsinline></video>
-        <div class="camera-caption" id="cameraCaption">Camera monitoring status</div>
+        <div class="camera-caption" id="cameraCaption">
+          Camera monitoring status
+        </div>
       </div>
     </aside>
   </div>
@@ -450,7 +460,6 @@ main {
 
 <div id="systemMessage"></div>
 
-<!-- Submission modal -->
 <div class="modal" id="submitModal">
   <div class="modal-card">
     <h2>Submit Examination?</h2>
@@ -463,7 +472,6 @@ main {
   </div>
 </div>
 
-<!-- Calculator modal -->
 <div class="modal" id="calculatorModal">
   <div class="modal-card">
     <h2>Basic Calculator</h2>
@@ -518,7 +526,7 @@ const STORAGE = {
 };
 
 let token = sessionStorage.getItem(STORAGE.token);
-let lookup = sessionStorage.getItem(STORAGE.lookup);
+const lookup = sessionStorage.getItem(STORAGE.lookup);
 
 let attempt = null;
 let candidate = null;
@@ -529,6 +537,7 @@ let subjects = [];
 let questionsBySubject = {};
 let flatQuestions = [];
 let answers = {};
+
 let currentSubjectIndex = 0;
 let currentQuestionIndex = 0;
 
@@ -537,12 +546,13 @@ let mediaWarning = false;
 let examSubmitted = false;
 let submissionInProgress = false;
 let saveInProgress = false;
+
 let saveQueue = new Map();
+
 let timerInterval = null;
 let saveInterval = null;
 let clockSyncInterval = null;
 let messageTimeout = null;
-let lastWarningState = "";
 
 const $ = id => document.getElementById(id);
 
@@ -550,7 +560,9 @@ function showMessage(message) {
   const box = $("systemMessage");
   box.textContent = message;
   box.style.display = "block";
+
   clearTimeout(messageTimeout);
+
   messageTimeout = setTimeout(() => {
     box.style.display = "none";
   }, 3500);
@@ -564,6 +576,16 @@ function hideLoading() {
   $("loadingScreen").style.display = "none";
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[ch]);
+}
+
 function showFatal(message) {
   $("loadingScreen").style.display = "flex";
   $("loadingScreen").innerHTML = `
@@ -572,16 +594,6 @@ function showFatal(message) {
       <p>${escapeHtml(message)}</p>
       <p>Please contact the examination administrator.</p>
     </div>`;
-}
-
-function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, ch => ({
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    '"':"&quot;",
-    "'":"&#39;"
-  })[ch]);
 }
 
 async function apiRequest(url, body = {}, useToken = true) {
@@ -601,6 +613,7 @@ async function apiRequest(url, body = {}, useToken = true) {
   });
 
   let data;
+
   try {
     data = await response.json();
   } catch {
@@ -618,7 +631,9 @@ async function apiRequest(url, body = {}, useToken = true) {
 }
 
 function requirePreparation() {
-  if (!lookup) throw new Error("Candidate verification information is missing.");
+  if (!lookup) {
+    throw new Error("Candidate verification information is missing.");
+  }
 
   if (sessionStorage.getItem(STORAGE.verified) !== "true") {
     throw new Error("Please complete candidate verification first.");
@@ -639,15 +654,46 @@ function updateStatus(id, label, bad) {
   el.classList.toggle("bad", Boolean(bad));
 }
 
+function showWarning(message) {
+  $("warningNotice").hidden = false;
+  $("warningNotice").textContent = message;
+}
+
+function clearWarning() {
+  $("warningNotice").hidden = true;
+  $("warningNotice").textContent = "";
+}
+
+function logBrowserEvent(type, details = {}) {
+  // Local diagnostic signal only.
+  // Backend audit logging and admin alerts are separate pending integrations.
+  console.info("[CBT EVENT]", type, {
+    at: new Date().toISOString(),
+    details
+  });
+}
+
 function updateMediaStatus() {
-  const videoTrack = mediaStream?.getVideoTracks().find(t => t.readyState === "live" && t.enabled);
-  const audioTrack = mediaStream?.getAudioTracks().find(t => t.readyState === "live" && t.enabled);
+  const videoTrack = mediaStream?.getVideoTracks()
+    .find(t => t.readyState === "live" && t.enabled);
+
+  const audioTrack = mediaStream?.getAudioTracks()
+    .find(t => t.readyState === "live" && t.enabled);
 
   const cameraOk = Boolean(videoTrack);
   const micOk = Boolean(audioTrack);
 
-  updateStatus("cameraStatus", cameraOk ? "Camera: Connected" : "Camera: Disconnected", !cameraOk);
-  updateStatus("micStatus", micOk ? "Microphone: Connected" : "Microphone: Disconnected", !micOk);
+  updateStatus(
+    "cameraStatus",
+    cameraOk ? "Camera: Connected" : "Camera: Disconnected",
+    !cameraOk
+  );
+
+  updateStatus(
+    "micStatus",
+    micOk ? "Microphone: Connected" : "Microphone: Disconnected",
+    !micOk
+  );
 
   $("cameraCaption").textContent = cameraOk && micOk
     ? "Camera and microphone connected"
@@ -657,30 +703,27 @@ function updateMediaStatus() {
 
   if (broken && !mediaWarning) {
     mediaWarning = true;
-    showWarning("Your camera or microphone has disconnected. Reconnect it immediately. Your examination timer will continue.");
+
+    showWarning(
+      "Your camera or microphone has disconnected. Reconnect it immediately. Your examination timer will continue."
+    );
+
     logBrowserEvent("MEDIA_DISCONNECTED", {
       cameraConnected: cameraOk,
       microphoneConnected: micOk
     });
+
   } else if (!broken && mediaWarning) {
     mediaWarning = false;
     clearWarning();
+
     logBrowserEvent("MEDIA_RECONNECTED", {
       cameraConnected: cameraOk,
       microphoneConnected: micOk
     });
+
     showMessage("Camera and microphone connection restored.");
   }
-}
-
-function showWarning(message) {
-  $("warningNotice").hidden = false;
-  $("warningNotice").textContent = message;
-}
-
-function clearWarning() {
-  $("warningNotice").hidden = true;
-  $("warningNotice").textContent = "";
 }
 
 async function acquireMedia() {
@@ -696,7 +739,12 @@ async function acquireMedia() {
   const video = stream.getVideoTracks()[0];
   const audio = stream.getAudioTracks()[0];
 
-  if (!video || !audio || video.readyState !== "live" || audio.readyState !== "live") {
+  if (
+    !video ||
+    !audio ||
+    video.readyState !== "live" ||
+    audio.readyState !== "live"
+  ) {
     stream.getTracks().forEach(track => track.stop());
     throw new Error("Both camera and microphone must be connected.");
   }
@@ -713,18 +761,27 @@ async function acquireMedia() {
   updateMediaStatus();
 }
 
-function logBrowserEvent(type, details = {}) {
-  // Local deterrence/diagnostic signal only.
-  // Server-side audit-event endpoint and admin alert integration are still pending.
-  console.info("[CBT EVENT]", type, {
-    at: new Date().toISOString(),
-    details
-  });
-}
-
 function parseServerTime(value) {
-  if (typeof value === "number") return value;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (value && typeof value.toMillis === "function") {
+    return value.toMillis();
+  }
+
+  if (value && typeof value._seconds === "number") {
+    return value._seconds * 1000 +
+      Math.floor((value._nanoseconds || 0) / 1000000);
+  }
+
+  if (value && typeof value.seconds === "number") {
+    return value.seconds * 1000 +
+      Math.floor((value.nanoseconds || 0) / 1000000);
+  }
+
   const parsed = Date.parse(value);
+
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -733,12 +790,19 @@ function serverNow() {
 }
 
 async function syncServerClock() {
-  // answer-state returns the server's current time.
   const data = await apiRequest(API.answerState);
+
   const serverTime = parseServerTime(data.serverTime);
+
   if (serverTime !== null) {
     serverOffset = serverTime - Date.now();
   }
+
+  if (data.deadlineAt) {
+    const newDeadline = parseServerTime(data.deadlineAt);
+    if (newDeadline !== null) deadline = newDeadline;
+  }
+
   return data;
 }
 
@@ -759,7 +823,11 @@ function startTimer() {
       $("timer").style.color = "#fecaca";
     }
 
-    if (remaining <= 0 && !submissionInProgress && !examSubmitted) {
+    if (
+      remaining <= 0 &&
+      !submissionInProgress &&
+      !examSubmitted
+    ) {
       clearInterval(timerInterval);
       showMessage("Official examination time has ended. Submitting your examination.");
       submitExam(true);
@@ -791,6 +859,7 @@ function normalizeQuestion(question, subject, index) {
     options: options.map((option, optionIndex) => {
       const value = String(option);
       const label = ["A", "B", "C", "D"][optionIndex];
+
       return {
         label,
         text: value.replace(/^[A-D][.)]\s*/i, "")
@@ -817,7 +886,10 @@ function loadQuestionData(data) {
   flatQuestions = [];
 
   for (const subject of subjects) {
-    if (!Array.isArray(incoming[subject]) || incoming[subject].length !== 40) {
+    if (
+      !Array.isArray(incoming[subject]) ||
+      incoming[subject].length !== 40
+    ) {
       throw new Error(`The question set for ${subject} is incomplete.`);
     }
 
@@ -842,22 +914,30 @@ function renderSubjects() {
 
   subjects.forEach((subject, index) => {
     const button = document.createElement("button");
-    button.className = "subject-tab" + (index === currentSubjectIndex ? " active" : "");
+
+    button.className =
+      "subject-tab" +
+      (index === currentSubjectIndex ? " active" : "");
+
     button.textContent = subject;
+
     button.addEventListener("click", () => {
       currentSubjectIndex = index;
       currentQuestionIndex = 0;
       renderExam();
     });
+
     $("subjectTabs").appendChild(button);
   });
 }
 
 function getGlobalIndex() {
   let count = 0;
+
   for (let i = 0; i < currentSubjectIndex; i++) {
     count += questionsBySubject[subjects[i]].length;
   }
+
   return count + currentQuestionIndex;
 }
 
@@ -874,7 +954,10 @@ function renderQuestion() {
 
   question.options.forEach(option => {
     const label = document.createElement("label");
-    label.className = "option" + (selected === option.label ? " selected" : "");
+
+    label.className =
+      "option" +
+      (selected === option.label ? " selected" : "");
 
     const radio = document.createElement("input");
     radio.type = "radio";
@@ -887,6 +970,7 @@ function renderQuestion() {
     });
 
     const text = document.createElement("span");
+
     text.innerHTML =
       `<span class="option-label">${option.label}.</span> ${escapeHtml(option.text)}`;
 
@@ -917,10 +1001,16 @@ function renderQuestionGrid() {
 
   questionsBySubject[subject].forEach((question, index) => {
     const button = document.createElement("button");
+
     button.className = "q-number";
 
-    if (answers[question.id]) button.classList.add("answered");
-    if (index === currentQuestionIndex) button.classList.add("current");
+    if (answers[question.id]) {
+      button.classList.add("answered");
+    }
+
+    if (index === currentQuestionIndex) {
+      button.classList.add("current");
+    }
 
     button.textContent = index + 1;
 
@@ -935,9 +1025,7 @@ function renderQuestionGrid() {
 
 function updateProgress() {
   const answered = flatQuestions.filter(q => Boolean(answers[q.id])).length;
-  const percentage = answered / 160 * 100;
-
-  $("progressBar").style.width = `${percentage}%`;
+  $("progressBar").style.width = `${answered / 160 * 100}%`;
 }
 
 function renderExam() {
@@ -946,7 +1034,11 @@ function renderExam() {
 }
 
 function selectAnswer(questionId, option) {
-  if (examSubmitted || serverNow() >= deadline) return;
+  if (
+    examSubmitted ||
+    submissionInProgress ||
+    serverNow() >= deadline
+  ) return;
 
   answers[questionId] = option;
   saveQueue.set(questionId, option);
@@ -962,6 +1054,7 @@ function goNext() {
     currentSubjectIndex++;
     currentQuestionIndex = 0;
   }
+
   renderExam();
 }
 
@@ -972,15 +1065,20 @@ function goPrevious() {
     currentSubjectIndex--;
     currentQuestionIndex = 39;
   }
+
   renderExam();
 }
 
-async function saveAnswers() {
+/*
+ * forceDuringSubmit allows the final answer queue to be flushed
+ * after the candidate confirms manual submission.
+ */
+async function saveAnswers(forceDuringSubmit = false) {
   if (
     saveInProgress ||
     saveQueue.size === 0 ||
     examSubmitted ||
-    submissionInProgress
+    (submissionInProgress && !forceDuringSubmit)
   ) return;
 
   if (serverNow() >= deadline) return;
@@ -988,6 +1086,7 @@ async function saveAnswers() {
   saveInProgress = true;
 
   const batch = Array.from(saveQueue.entries()).slice(0, 40);
+
   batch.forEach(([id]) => saveQueue.delete(id));
 
   const payload = batch.map(([questionId, selectedOption]) => ({
@@ -996,12 +1095,21 @@ async function saveAnswers() {
   }));
 
   try {
-    const data = await apiRequest(API.answers, { answers: payload });
+    const data = await apiRequest(API.answers, {
+      answers: payload
+    });
 
-    updateStatus("saveStatus", `Answers: Saved (${data.savedCount})`, false);
+    updateStatus(
+      "saveStatus",
+      `Answers: Saved (${data.savedCount})`,
+      false
+    );
+
   } catch (error) {
     batch.forEach(([id, option]) => {
-      if (!saveQueue.has(id)) saveQueue.set(id, option);
+      if (!saveQueue.has(id)) {
+        saveQueue.set(id, option);
+      }
     });
 
     if (
@@ -1011,8 +1119,12 @@ async function saveAnswers() {
       showMessage("The examination is no longer accepting answers.");
     } else {
       updateStatus("saveStatus", "Answers: Save pending", true);
-      showWarning("Some answers could not be saved yet. Your browser will retry while time remains.");
+
+      showWarning(
+        "Some answers could not be saved yet. Your browser will retry while time remains."
+      );
     }
+
   } finally {
     saveInProgress = false;
   }
@@ -1021,12 +1133,16 @@ async function saveAnswers() {
 async function flushAnswers() {
   let rounds = 0;
 
-  while (saveQueue.size && rounds < 10 && serverNow() < deadline) {
-    await saveAnswers();
+  while (
+    saveQueue.size &&
+    rounds < 15 &&
+    serverNow() < deadline
+  ) {
+    await saveAnswers(true);
     rounds++;
 
     if (saveQueue.size) {
-      await new Promise(resolve => setTimeout(resolve, 250));
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
   }
 
@@ -1039,19 +1155,36 @@ async function restoreAnswers() {
   const restored = data.answers || {};
 
   for (const [id, item] of Object.entries(restored)) {
-    if (item.selectedOption) {
-      answers[id] = String(item.selectedOption).toUpperCase();
+    // Supports both the documented object response and a string value.
+    const selectedOption =
+      typeof item === "string"
+        ? item
+        : item?.selectedOption;
+
+    if (
+      selectedOption &&
+      ["A", "B", "C", "D"].includes(
+        String(selectedOption).toUpperCase()
+      )
+    ) {
+      answers[id] = String(selectedOption).toUpperCase();
     }
   }
 
   if (data.deadlineAt) {
     const restoredDeadline = parseServerTime(data.deadlineAt);
-    if (restoredDeadline !== null) deadline = restoredDeadline;
+
+    if (restoredDeadline !== null) {
+      deadline = restoredDeadline;
+    }
   }
 
   if (data.serverTime) {
     const serverTime = parseServerTime(data.serverTime);
-    if (serverTime !== null) serverOffset = serverTime - Date.now();
+
+    if (serverTime !== null) {
+      serverOffset = serverTime - Date.now();
+    }
   }
 
   updateStatus(
@@ -1061,32 +1194,50 @@ async function restoreAnswers() {
   );
 }
 
-async function submitExam(timeExpired = false) {
+/*
+ * confirmed = true means the candidate has clicked
+ * "Confirm Submission" in the confirmation modal.
+ */
+async function submitExam(timeExpired = false, confirmed = false) {
   if (examSubmitted || submissionInProgress) return;
 
-  if (!timeExpired) {
+  if (!timeExpired && !confirmed) {
     $("submitSummary").textContent =
       `You have answered ${flatQuestions.filter(q => answers[q.id]).length} out of 160 questions. Are you sure you want to submit?`;
+
     $("submitModal").classList.add("show");
     return;
   }
 
-  submissionInProgress = true;
   $("submitModal").classList.remove("show");
+
+  submissionInProgress = true;
+
   $("confirmSubmitBtn").disabled = true;
   $("submitBtn").disabled = true;
 
   try {
+    /*
+     * Manual submission: save queued answers first.
+     * The force flag permits saving while submission is in progress.
+     *
+     * Time-expired submission: the server finalizes using answers
+     * already stored before the official deadline.
+     */
     if (!timeExpired) {
       const saved = await flushAnswers();
+
       if (!saved) {
-        throw new Error("Some answers are still waiting to be saved. Please try again.");
+        throw new Error(
+          "Some answers are still waiting to be saved. Please try again."
+        );
       }
     }
 
     const result = await apiRequest(API.submit, {});
 
     examSubmitted = true;
+
     clearInterval(timerInterval);
     clearInterval(saveInterval);
     clearInterval(clockSyncInterval);
@@ -1100,29 +1251,41 @@ async function submitExam(timeExpired = false) {
     }
 
     $("loadingScreen").style.display = "flex";
+
     $("loadingScreen").innerHTML = `
       <div class="loading-card">
         <h2>Examination Submitted</h2>
         <p>Your examination has been submitted successfully.</p>
-        <p><strong>Registration:</strong> ${escapeHtml(candidate.registrationNumber)}</p>
-        <p><strong>Attempt ID:</strong> ${escapeHtml(result.attemptId || attempt.attemptId)}</p>
+        <p><strong>Registration:</strong>
+          ${escapeHtml(candidate.registrationNumber || "")}
+        </p>
+        <p><strong>Attempt ID:</strong>
+          ${escapeHtml(result.attemptId || attempt.attemptId)}
+        </p>
         <p>Your submission has been recorded. Contact the examination administrator for further information.</p>
       </div>`;
 
-    logBrowserEvent("EXAM_SUBMITTED", { attemptId: attempt.attemptId });
+    logBrowserEvent("EXAM_SUBMITTED", {
+      attemptId: attempt.attemptId
+    });
+
   } catch (error) {
     submissionInProgress = false;
+
     $("confirmSubmitBtn").disabled = false;
     $("submitBtn").disabled = false;
 
-    if (error.code === "ATTEMPT_ALREADY_SUBMITTED") {
+    if (
+      error.code === "ATTEMPT_ALREADY_SUBMITTED" ||
+      error.code === "ATTEMPT_EXPIRED"
+    ) {
       examSubmitted = true;
-      showFatal("This examination has already been submitted.");
+      showFatal("This examination is no longer active.");
       return;
     }
 
     showWarning(
-      "Submission could not be confirmed. Please keep this page open and contact the examination administrator. " +
+      "Submission could not be confirmed. Keep this page open and contact the examination administrator. " +
       (error.message || "")
     );
   }
@@ -1130,12 +1293,13 @@ async function submitExam(timeExpired = false) {
 
 async function confirmManualSubmit() {
   $("submitModal").classList.remove("show");
-  await submitExam(false);
+
+  // FIX: this now actually submits instead of reopening the modal.
+  await submitExam(false, true);
 }
 
 function initCalculator() {
   let expression = "";
-
   const display = $("calculatorDisplay");
 
   $("calculatorKeys").addEventListener("click", event => {
@@ -1144,8 +1308,10 @@ function initCalculator() {
 
     if (key === "clear") {
       expression = "";
+
     } else if (key === "back") {
       expression = expression.slice(0, -1);
+
     } else if (key === "equals") {
       try {
         if (!/^[0-9+\-*/().\s]+$/.test(expression)) {
@@ -1154,22 +1320,27 @@ function initCalculator() {
 
         const result = calculateExpression(expression);
         expression = String(result);
+
       } catch {
         expression = "";
         display.value = "Error";
         return;
       }
+
     } else {
-      if (expression.length < 60) expression += key;
+      if (expression.length < 60) {
+        expression += key;
+      }
     }
 
     display.value = expression || "0";
   });
 }
 
-/* Safe arithmetic parser; does not use eval() or Function(). */
+/* Safe arithmetic parser: no eval() or Function(). */
 function calculateExpression(input) {
   const tokens = input.match(/\d+(?:\.\d+)?|[()+\-*/]/g) || [];
+
   if (tokens.join("") !== input.replace(/\s/g, "")) {
     throw new Error("Invalid expression");
   }
@@ -1184,24 +1355,40 @@ function calculateExpression(input) {
 
     if (token === "(") {
       const value = expression();
-      if (tokens[index++] !== ")") throw new Error("Missing closing bracket");
+
+      if (tokens[index++] !== ")") {
+        throw new Error("Missing closing bracket");
+      }
+
       return value;
     }
 
     const number = Number(token);
-    if (!Number.isFinite(number)) throw new Error("Invalid number");
+
+    if (!Number.isFinite(number)) {
+      throw new Error("Invalid number");
+    }
+
     return number;
   }
 
   function term() {
     let value = primary();
 
-    while (tokens[index] === "*" || tokens[index] === "/") {
+    while (
+      tokens[index] === "*" ||
+      tokens[index] === "/"
+    ) {
       const operator = tokens[index++];
       const next = primary();
 
-      if (operator === "/" && next === 0) throw new Error("Division by zero");
-      value = operator === "*" ? value * next : value / next;
+      if (operator === "/" && next === 0) {
+        throw new Error("Division by zero");
+      }
+
+      value = operator === "*"
+        ? value * next
+        : value / next;
     }
 
     return value;
@@ -1210,20 +1397,31 @@ function calculateExpression(input) {
   function expression() {
     let value = term();
 
-    while (tokens[index] === "+" || tokens[index] === "-") {
+    while (
+      tokens[index] === "+" ||
+      tokens[index] === "-"
+    ) {
       const operator = tokens[index++];
       const next = term();
-      value = operator === "+" ? value + next : value - next;
+
+      value = operator === "+"
+        ? value + next
+        : value - next;
     }
 
     return value;
   }
 
-  if (!tokens.length) throw new Error("Empty expression");
+  if (!tokens.length) {
+    throw new Error("Empty expression");
+  }
 
   const result = expression();
 
-  if (index !== tokens.length || !Number.isFinite(result)) {
+  if (
+    index !== tokens.length ||
+    !Number.isFinite(result)
+  ) {
     throw new Error("Invalid calculation");
   }
 
@@ -1240,21 +1438,36 @@ async function enterFullscreen() {
   }
 }
 
+/*
+ * Browser monitoring is registered exactly once.
+ * These browser signals are deterrents and diagnostics,
+ * not proof of misconduct or a replacement for server auditing.
+ */
 function setupBrowserMonitoring() {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       logBrowserEvent("PAGE_HIDDEN");
-      showWarning("You have left the examination page. Return immediately. Your timer continues.");
+
+      showWarning(
+        "You have left the examination page. Return immediately. Your timer continues."
+      );
+
     } else {
       logBrowserEvent("PAGE_VISIBLE");
-      if (!mediaWarning) clearWarning();
+
+      if (!mediaWarning) {
+        clearWarning();
+      }
     }
   });
 
   document.addEventListener("fullscreenchange", () => {
     if (!document.fullscreenElement && !examSubmitted) {
       logBrowserEvent("FULLSCREEN_EXITED");
-      showWarning("Fullscreen mode was exited. Please return to fullscreen.");
+
+      showWarning(
+        "Fullscreen mode was exited. Please return to fullscreen."
+      );
     }
   });
 
@@ -1266,7 +1479,9 @@ function setupBrowserMonitoring() {
     logBrowserEvent("WINDOW_FOCUSED");
   });
 
-  document.addEventListener("contextmenu", event => event.preventDefault());
+  document.addEventListener("contextmenu", event => {
+    event.preventDefault();
+  });
 
   document.addEventListener("copy", event => event.preventDefault());
   document.addEventListener("cut", event => event.preventDefault());
@@ -1277,7 +1492,8 @@ function setupBrowserMonitoring() {
 
     if (
       event.key === "F12" ||
-      (event.ctrlKey && event.shiftKey && ["i", "j", "c"].includes(key)) ||
+      (event.ctrlKey && event.shiftKey &&
+        ["i", "j", "c"].includes(key)) ||
       (event.ctrlKey && key === "u")
     ) {
       event.preventDefault();
@@ -1291,7 +1507,10 @@ function setupBrowserMonitoring() {
   });
 
   window.addEventListener("offline", () => {
-    showWarning("Internet connection lost. Your examination timer continues.");
+    showWarning(
+      "Internet connection lost. Your examination timer continues."
+    );
+
     logBrowserEvent("NETWORK_OFFLINE");
   });
 
@@ -1310,19 +1529,29 @@ async function initializeExam() {
     await acquireMedia();
 
     setLoading("Verifying your candidate information...");
-    const verified = await apiRequest(API.verify, {
-      whatsappNumber: lookup
-    }, false);
 
-    if (!verified.ok) throw new Error("Candidate verification failed.");
+    const verified = await apiRequest(
+      API.verify,
+      { whatsappNumber: lookup },
+      false
+    );
+
+    if (!verified.ok) {
+      throw new Error("Candidate verification failed.");
+    }
 
     setLoading("Starting or resuming your examination...");
-    const started = await apiRequest(API.start, {
-      whatsappNumber: lookup
-    }, Boolean(token));
+
+    const started = await apiRequest(
+      API.start,
+      { whatsappNumber: lookup },
+      Boolean(token)
+    );
 
     if (!started.token && !token) {
-      throw new Error("The examination server did not issue a secure session token.");
+      throw new Error(
+        "The examination server did not issue a secure session token."
+      );
     }
 
     if (started.token) {
@@ -1334,7 +1563,9 @@ async function initializeExam() {
     candidate = started.candidate || verified.candidate || {};
 
     if (!attempt.attemptId || !attempt.deadlineAt) {
-      throw new Error("The examination server returned incomplete attempt information.");
+      throw new Error(
+        "The examination server returned incomplete attempt information."
+      );
     }
 
     sessionStorage.setItem(STORAGE.attempt, attempt.attemptId);
@@ -1351,14 +1582,17 @@ async function initializeExam() {
     $("registrationNumber").textContent =
       candidate.registrationNumber || "---";
 
-    $("attemptStatus").textContent = started.resumed ? "Resumed" : "In Progress";
+    $("attemptStatus").textContent =
+      started.resumed ? "Resumed" : "In Progress";
 
     setLoading("Loading your examination questions...");
+
     const questionData = await apiRequest(API.questions);
 
     loadQuestionData(questionData);
 
     setLoading("Restoring your previously saved answers...");
+
     await restoreAnswers();
 
     if (serverNow() >= deadline) {
@@ -1369,21 +1603,27 @@ async function initializeExam() {
     hideLoading();
 
     startTimer();
+
+    // Fullscreen may require a browser gesture on some devices.
     await enterFullscreen();
 
-    saveInterval = setInterval(saveAnswers, 3000);
+    saveInterval = setInterval(() => {
+      saveAnswers();
+    }, 3000);
 
     clockSyncInterval = setInterval(async () => {
       try {
         await syncServerClock();
+
       } catch (error) {
-        if (error.code === "EXAM_TIME_EXPIRED") {
+        if (
+          error.code === "EXAM_TIME_EXPIRED" ||
+          error.code === "ATTEMPT_EXPIRED"
+        ) {
           showWarning("The examination deadline has passed.");
         }
       }
     }, 30000);
-
-    setupBrowserMonitoring();
 
     showMessage(
       started.resumed
@@ -1413,7 +1653,9 @@ async function initializeExam() {
       mediaStream = null;
     }
 
-    showFatal(error.message || "Unable to prepare your examination.");
+    showFatal(
+      error.message || "Unable to prepare your examination."
+    );
   }
 }
 
@@ -1421,7 +1663,10 @@ async function initializeExam() {
 $("previousBtn").addEventListener("click", goPrevious);
 $("nextBtn").addEventListener("click", goNext);
 
-$("submitBtn").addEventListener("click", () => submitExam(false));
+$("submitBtn").addEventListener("click", () => {
+  submitExam(false);
+});
+
 $("confirmSubmitBtn").addEventListener("click", confirmManualSubmit);
 
 $("cancelSubmitBtn").addEventListener("click", () => {
@@ -1439,8 +1684,12 @@ $("closeCalculatorBtn").addEventListener("click", () => {
 $("fullscreenBtn").addEventListener("click", enterFullscreen);
 
 initCalculator();
+
+/* FIX: one registration only; removed duplicate initialization call. */
 setupBrowserMonitoring();
+
 initializeExam();
 </script>
+
 </body>
 </html>
