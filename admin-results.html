@@ -1,0 +1,1098 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#14532d">
+  <title>Flexi CBT | Admin Results</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --green: #166534;
+      --green-dark: #14532d;
+      --green-light: #dcfce7;
+      --lime: #84cc16;
+      --bg: #f3f6f4;
+      --white: #fff;
+      --text: #17251b;
+      --muted: #64748b;
+      --border: #e2e8e4;
+      --red: #dc2626;
+      --orange: #ea580c;
+      --shadow: 0 5px 20px rgba(15,23,42,.05);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Inter, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .hidden { display: none !important; }
+
+    #loginScreen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      background: white;
+      padding: 35px;
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .brand {
+      font-size: 25px;
+      font-weight: 800;
+      color: var(--green);
+      margin-bottom: 8px;
+    }
+
+    .login-card h2 { margin: 25px 0 8px; font-size: 23px; }
+    .muted { color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+    .field { margin-top: 20px; }
+    .field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      outline: none;
+    }
+
+    .field input:focus { border-color: var(--green); }
+
+    .primary-btn {
+      border: none;
+      background: var(--green);
+      color: white;
+      padding: 13px 18px;
+      border-radius: 9px;
+      font-weight: 700;
+      transition: .2s;
+    }
+
+    .primary-btn:hover { background: var(--green-dark); }
+    .primary-btn:disabled { opacity: .6; cursor: wait; }
+    .full { width: 100%; margin-top: 22px; }
+    .error { color: var(--red); font-size: 13px; margin-top: 13px; }
+
+    header {
+      background: var(--green-dark);
+      color: white;
+      padding: 17px 5%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .header-brand { font-size: 20px; font-weight: 800; }
+    .header-brand span { color: var(--lime); }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .admin-email { font-size: 12px; color: #d1fae5; }
+
+    .logout-btn {
+      background: rgba(255,255,255,.12);
+      color: white;
+      border: 1px solid rgba(255,255,255,.2);
+      padding: 9px 13px;
+      border-radius: 7px;
+    }
+
+    main {
+      width: 94%;
+      max-width: 1450px;
+      margin: 28px auto;
+    }
+
+    .page-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 23px;
+    }
+
+    .page-heading h1 { font-size: 25px; margin-bottom: 6px; }
+    .page-heading p { color: var(--muted); font-size: 13px; }
+
+    .toolbar { display: flex; gap: 9px; flex-wrap: wrap; }
+
+    .secondary-btn {
+      background: white;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(5,minmax(0,1fr));
+      gap: 15px;
+      margin-bottom: 22px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 13px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    .stat-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+    .stat-value { font-size: 27px; font-weight: 800; margin-top: 12px; }
+    .stat-note { font-size: 11px; color: var(--muted); margin-top: 5px; }
+    .green-text { color: var(--green); }
+    .red-text { color: var(--red); }
+    .orange-text { color: var(--orange); }
+
+    .panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 21px;
+      box-shadow: var(--shadow);
+      margin-bottom: 22px;
+    }
+
+    .panel-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .panel-heading h2 { font-size: 17px; }
+    .panel-heading p { font-size: 12px; color: var(--muted); margin-top: 5px; }
+
+    .subject-list {
+      display: grid;
+      grid-template-columns: repeat(2,minmax(0,1fr));
+      gap: 18px 30px;
+    }
+
+    .subject-item { min-width: 0; }
+
+    .subject-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 9px;
+      font-size: 12px;
+    }
+
+    .subject-name { font-weight: 700; }
+    .subject-average { color: var(--green); font-weight: 800; }
+
+    .progress {
+      height: 9px;
+      background: #e9eee9;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--green);
+      border-radius: 20px;
+    }
+
+    .subject-foot { font-size: 11px; color: var(--muted); margin-top: 7px; }
+
+    .table-tools {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 17px;
+    }
+
+    .search-input {
+      flex: 1;
+      min-width: 200px;
+      padding: 11px 13px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      outline: none;
+    }
+
+    .search-input:focus { border-color: var(--green); }
+    .table-wrap { overflow-x: auto; }
+
+    table { width: 100%; border-collapse: collapse; min-width: 700px; }
+
+    th {
+      text-align: left;
+      font-size: 11px;
+      color: var(--muted);
+      background: #f8faf9;
+      padding: 13px;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 14px 13px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    tbody tr:hover { background: #f8faf9; }
+    .candidate-name { font-weight: 700; }
+    .candidate-reg { font-size: 10px; color: var(--muted); margin-top: 5px; }
+    .score { font-weight: 800; color: var(--green); }
+
+    .view-btn {
+      background: var(--green-light);
+      color: var(--green);
+      border: none;
+      padding: 8px 11px;
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .empty {
+      padding: 30px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,.65);
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 15px;
+    }
+
+    .modal-card {
+      background: white;
+      border-radius: 15px;
+      width: 100%;
+      max-width: 650px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .modal-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .modal-heading h2 { font-size: 19px; }
+
+    .close-btn {
+      border: none;
+      background: #f1f5f9;
+      border-radius: 8px;
+      width: 34px;
+      height: 34px;
+      font-size: 20px;
+    }
+
+    .candidate-details {
+      background: #f8faf9;
+      border-radius: 10px;
+      padding: 15px;
+      display: grid;
+      grid-template-columns: repeat(2,minmax(0,1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .detail-label { color: var(--muted); font-size: 10px; margin-bottom: 5px; }
+    .detail-value { font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+
+    .subject-result {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+
+    .subject-result strong { color: var(--green); }
+
+    #loading {
+      padding: 50px 15px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .spinner {
+      width: 30px;
+      height: 30px;
+      border: 3px solid #d1fae5;
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 14px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .notice {
+      background: #fff7ed;
+      color: #9a3412;
+      border: 1px solid #fed7aa;
+      border-radius: 9px;
+      padding: 12px;
+      font-size: 12px;
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+
+    @media(max-width:1050px) {
+      .stats-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+    }
+
+    @media(max-width:650px) {
+      main { width: 92%; margin-top: 20px; }
+      .stats-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+      .stat-card { padding: 15px; }
+      .stat-value { font-size: 23px; }
+      .subject-list { grid-template-columns: 1fr; }
+      .panel { padding: 16px; }
+      .login-card { padding: 25px; }
+      .page-heading h1 { font-size: 21px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <section id="loginScreen">
+    <div class="login-card">
+      <div class="brand">FLEXI CBT</div>
+      <p class="muted">Examination Administration Portal</p>
+
+      <h2>Admin Login</h2>
+      <p class="muted">Sign in with your authorized administrator account.</p>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="email">Email Address</label>
+          <input id="email" type="email" autocomplete="username" required>
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" required>
+        </div>
+
+        <button class="primary-btn full" id="loginButton" type="submit">
+          Sign In
+        </button>
+
+        <p id="loginError" class="error"></p>
+      </form>
+    </div>
+  </section>
+
+  <section id="dashboard" class="hidden">
+
+    <header>
+      <div class="header-brand">FLEXI <span>CBT</span> ADMIN</div>
+
+      <div class="header-right">
+        <span id="adminEmail" class="admin-email"></span>
+        <button class="logout-btn" id="logoutButton">Logout</button>
+      </div>
+    </header>
+
+    <main>
+
+      <div class="page-heading">
+        <div>
+          <h1>Examination Results</h1>
+          <p>Monitor candidate performance and examination statistics.</p>
+        </div>
+
+        <div class="toolbar">
+          <button class="secondary-btn" id="refreshButton">↻ Refresh Results</button>
+          <button class="primary-btn" id="exportButton">Export CSV</button>
+        </div>
+      </div>
+
+      <div class="notice">
+        Results are visible only to authorized administrators.
+        Candidate scores are retrieved from the server.
+      </div>
+
+      <div id="loading" class="hidden">
+        <div class="spinner"></div>
+        Loading examination results...
+      </div>
+
+      <div id="dashboardContent" class="hidden">
+
+        <section class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Candidates</div>
+            <div class="stat-value" id="totalCandidates">0</div>
+            <div class="stat-note">Registered candidates</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">Not Started</div>
+            <div class="stat-value" id="notStarted">0</div>
+            <div class="stat-note">Awaiting examination</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">Currently Writing</div>
+            <div class="stat-value orange-text" id="currentlyWriting">0</div>
+            <div class="stat-note">Active attempts</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">Submitted</div>
+            <div class="stat-value green-text" id="submitted">0</div>
+            <div class="stat-note">Completed submissions</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">Expired</div>
+            <div class="stat-value red-text" id="expired">0</div>
+            <div class="stat-note">Expired attempts</div>
+          </div>
+        </section>
+
+        <section class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Average Score</div>
+            <div class="stat-value" id="averageScore">0</div>
+            <div class="stat-note">Out of 160</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">Average Percentage</div>
+            <div class="stat-value" id="averagePercentage">0%</div>
+            <div class="stat-note">Overall performance</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">Highest Score</div>
+            <div class="stat-value green-text" id="highestScore">—</div>
+            <div class="stat-note">Best candidate score</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">Lowest Score</div>
+            <div class="stat-value red-text" id="lowestScore">—</div>
+            <div class="stat-note">Lowest submitted score</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">Results Published</div>
+            <div class="stat-value" id="resultCount">0</div>
+            <div class="stat-note">Submitted attempts</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Subject Performance</h2>
+              <p>Average performance across submitted candidates.</p>
+            </div>
+          </div>
+
+          <div id="subjectList" class="subject-list">
+            <div class="empty">No subject data available.</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Candidate Rankings</h2>
+              <p>Submitted candidates ranked by total score.</p>
+            </div>
+
+            <span class="muted" id="candidateCount">0 candidates</span>
+          </div>
+
+          <div class="table-tools">
+            <input
+              type="search"
+              id="searchInput"
+              class="search-input"
+              placeholder="Search candidate name or registration number..."
+            >
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>RANK</th>
+                  <th>CANDIDATE</th>
+                  <th>BATCH</th>
+                  <th>SCORE</th>
+                  <th>PERCENTAGE</th>
+                  <th>SUBMITTED</th>
+                  <th>ACTION</th>
+                </tr>
+              </thead>
+
+              <tbody id="candidateTable">
+                <tr>
+                  <td colspan="7" class="empty">No results available.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </section>
+
+  <div id="resultModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-heading">
+        <h2>Candidate Result</h2>
+        <button class="close-btn" id="closeModal">×</button>
+      </div>
+
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+  <script>
+    "use strict";
+
+    // FLEXI FIREBASE WEB APP CONFIGURATION
+
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyDfS0TufUE0eAOHUBprVUmHOYC5BccRTMA",
+      authDomain: "free-jamb-form-initiative.firebaseapp.com",
+      databaseURL: "https://free-jamb-form-initiative-default-rtdb.firebaseio.com",
+      projectId: "free-jamb-form-initiative",
+      storageBucket: "free-jamb-form-initiative.firebasestorage.app",
+      messagingSenderId: "301438259098",
+      appId: "1:301438259098:web:ed88f5b17638ee12a8b423"
+    };
+
+    const API_BASE = "/api/admin";
+
+    let auth = null;
+    let allCandidates = [];
+    let dashboardData = null;
+
+    const $ = id => document.getElementById(id);
+
+    function escapeHTML(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      })[char]);
+    }
+
+    function formatDate(value) {
+      if (!value) return "—";
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) return "—";
+
+      return date.toLocaleString("en-NG", {
+        timeZone: "Africa/Lagos",
+        dateStyle: "medium",
+        timeStyle: "short"
+      });
+    }
+
+    function formatNumber(value, decimals = 0) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number.toFixed(decimals) : "0";
+    }
+
+    function showLogin() {
+      $("loginScreen").classList.remove("hidden");
+      $("dashboard").classList.add("hidden");
+    }
+
+    function showDashboard() {
+      $("loginScreen").classList.add("hidden");
+      $("dashboard").classList.remove("hidden");
+    }
+
+    async function getToken() {
+      const user = auth.currentUser;
+
+      if (!user) {
+        throw new Error("Please sign in again.");
+      }
+
+      return await user.getIdToken();
+    }
+
+    async function apiRequest(endpoint, options = {}) {
+      const token = await getToken();
+
+      const response = await fetch(API_BASE + endpoint, {
+        ...options,
+
+        headers: {
+          ...(options.headers || {}),
+          "Authorization": "Bearer " + token,
+          "Content-Type": "application/json"
+        },
+
+        cache: "no-store"
+      });
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error("The server returned an invalid response.");
+      }
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.message ||
+          data.code ||
+          "Unable to load examination results."
+        );
+      }
+
+      return data;
+    }
+
+    // ADMIN LOGIN
+
+    $("loginForm").addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const email = $("email").value.trim();
+      const password = $("password").value;
+
+      $("loginButton").disabled = true;
+      $("loginButton").textContent = "Signing in...";
+      $("loginError").textContent = "";
+
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+      } catch (error) {
+        $("loginError").textContent =
+          error.code === "auth/invalid-credential"
+            ? "Incorrect email or password."
+            : error.message;
+      } finally {
+        $("loginButton").disabled = false;
+        $("loginButton").textContent = "Sign In";
+      }
+    });
+
+    // LOGOUT
+
+    $("logoutButton").addEventListener("click", async () => {
+      await auth.signOut();
+    });
+
+    // LOAD RESULTS
+
+    async function loadResults() {
+      $("loading").classList.remove("hidden");
+      $("dashboardContent").classList.add("hidden");
+
+      try {
+        const data = await apiRequest("/results");
+
+        dashboardData = data;
+
+        allCandidates = Array.isArray(data.candidates)
+          ? data.candidates
+          : [];
+
+        renderDashboard(data);
+
+        $("dashboardContent").classList.remove("hidden");
+
+      } catch (error) {
+        alert(error.message);
+      } finally {
+        $("loading").classList.add("hidden");
+      }
+    }
+
+    // OVERVIEW
+
+    function renderDashboard(data) {
+      const overview = data.overview || {};
+
+      $("totalCandidates").textContent = overview.totalCandidates ?? 0;
+      $("notStarted").textContent = overview.notStarted ?? 0;
+      $("currentlyWriting").textContent = overview.currentlyWriting ?? 0;
+      $("submitted").textContent = overview.submitted ?? 0;
+      $("expired").textContent = overview.expired ?? 0;
+
+      $("averageScore").textContent =
+        formatNumber(overview.averageScore, 2);
+
+      $("averagePercentage").textContent =
+        formatNumber(overview.averagePercentage, 2) + "%";
+
+      $("highestScore").textContent = overview.highestScore ?? "—";
+      $("lowestScore").textContent = overview.lowestScore ?? "—";
+      $("resultCount").textContent = overview.submitted ?? 0;
+
+      renderSubjects(data.subjectSummary || []);
+      renderCandidates(allCandidates);
+
+      $("candidateCount").textContent =
+        allCandidates.length + " candidates";
+    }
+
+    // SUBJECT PERFORMANCE
+
+    function renderSubjects(subjects) {
+      const container = $("subjectList");
+
+      if (!subjects.length) {
+        container.innerHTML =
+          '<div class="empty">No subject performance data available yet.</div>';
+        return;
+      }
+
+      container.innerHTML = subjects.map(subject => {
+        const percentage = Math.max(
+          0,
+          Math.min(100, Number(subject.averagePercentage) || 0)
+        );
+
+        return `
+          <div class="subject-item">
+            <div class="subject-top">
+              <span class="subject-name">
+                ${escapeHTML(subject.subject)}
+              </span>
+
+              <span class="subject-average">
+                ${formatNumber(percentage, 1)}%
+              </span>
+            </div>
+
+            <div class="progress">
+              <div class="progress-fill" style="width:${percentage}%"></div>
+            </div>
+
+            <div class="subject-foot">
+              ${Number(subject.candidates) || 0} candidates ·
+              Average score: ${formatNumber(subject.averageScore, 1)}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // CANDIDATE TABLE
+
+    function renderCandidates(candidates) {
+      const tbody = $("candidateTable");
+
+      if (!candidates.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="empty">
+              No submitted candidate results found.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = candidates.map((candidate, index) => `
+        <tr>
+          <td><strong>${index + 1}</strong></td>
+
+          <td>
+            <div class="candidate-name">
+              ${escapeHTML(candidate.candidateName)}
+            </div>
+
+            <div class="candidate-reg">
+              ${escapeHTML(candidate.registrationNumber || "No registration number")}
+            </div>
+          </td>
+
+          <td>${escapeHTML(candidate.batch || "—")}</td>
+
+          <td class="score">
+            ${formatNumber(candidate.totalScore)}/160
+          </td>
+
+          <td>${formatNumber(candidate.percentage, 2)}%</td>
+
+          <td>${escapeHTML(formatDate(candidate.submittedAt))}</td>
+
+          <td>
+            <button class="view-btn" data-candidate-id="${escapeHTML(candidate.candidateId || "")}">
+              View Result
+            </button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    // SEARCH
+
+    $("searchInput").addEventListener("input", event => {
+      const query = event.target.value.trim().toLowerCase();
+
+      const filtered = allCandidates.filter(candidate => {
+        return [
+          candidate.candidateName,
+          candidate.registrationNumber,
+          candidate.batch
+        ].some(value =>
+          String(value || "").toLowerCase().includes(query)
+        );
+      });
+
+      renderCandidates(filtered);
+
+      $("candidateCount").textContent =
+        filtered.length + " candidates";
+    });
+
+    // RESULT DETAILS
+
+    $("candidateTable").addEventListener("click", event => {
+      const button = event.target.closest("[data-candidate-id]");
+      if (!button) return;
+
+      const candidate = allCandidates.find(item =>
+        String(item.candidateId) === button.dataset.candidateId
+      );
+
+      if (candidate) showCandidateResult(candidate);
+    });
+
+    function showCandidateResult(candidate) {
+      const subjects = candidate.subjectScores || {};
+      const entries = Object.entries(subjects);
+
+      const subjectHTML = entries.length
+        ? entries.map(([name, data]) => `
+            <div class="subject-result">
+              <span>${escapeHTML(name)}</span>
+
+              <strong>
+                ${formatNumber(data.score)}/${formatNumber(data.totalQuestions)}
+                (${formatNumber(data.percentage, 1)}%)
+              </strong>
+            </div>
+          `).join("")
+        : '<div class="empty">No subject breakdown available.</div>';
+
+      $("modalContent").innerHTML = `
+        <div class="candidate-details">
+
+          <div>
+            <div class="detail-label">Candidate Name</div>
+            <div class="detail-value">
+              ${escapeHTML(candidate.candidateName)}
+            </div>
+          </div>
+
+          <div>
+            <div class="detail-label">Registration Number</div>
+            <div class="detail-value">
+              ${escapeHTML(candidate.registrationNumber || "—")}
+            </div>
+          </div>
+
+          <div>
+            <div class="detail-label">Batch</div>
+            <div class="detail-value">
+              ${escapeHTML(candidate.batch || "—")}
+            </div>
+          </div>
+
+          <div>
+            <div class="detail-label">Submitted At</div>
+            <div class="detail-value">
+              ${escapeHTML(formatDate(candidate.submittedAt))}
+            </div>
+          </div>
+
+          <div>
+            <div class="detail-label">Total Score</div>
+            <div class="detail-value green-text">
+              ${formatNumber(candidate.totalScore)}/160
+            </div>
+          </div>
+
+          <div>
+            <div class="detail-label">Percentage</div>
+            <div class="detail-value green-text">
+              ${formatNumber(candidate.percentage, 2)}%
+            </div>
+          </div>
+
+        </div>
+
+        <h3 style="font-size:14px;margin-bottom:10px;">
+          Subject Breakdown
+        </h3>
+
+        ${subjectHTML}
+      `;
+
+      $("resultModal").classList.remove("hidden");
+    }
+
+    $("closeModal").addEventListener("click", () => {
+      $("resultModal").classList.add("hidden");
+    });
+
+    $("resultModal").addEventListener("click", event => {
+      if (event.target === $("resultModal")) {
+        $("resultModal").classList.add("hidden");
+      }
+    });
+
+    // REFRESH
+
+    $("refreshButton").addEventListener("click", loadResults);
+
+    // CSV EXPORT
+
+    $("exportButton").addEventListener("click", () => {
+      if (!allCandidates.length) {
+        alert("There are no submitted results to export.");
+        return;
+      }
+
+      const headers = [
+        "Rank",
+        "Candidate Name",
+        "Registration Number",
+        "Batch",
+        "Total Score",
+        "Percentage",
+        "Submitted At"
+      ];
+
+      const rows = allCandidates.map((candidate, index) => [
+        index + 1,
+        candidate.candidateName,
+        candidate.registrationNumber,
+        candidate.batch,
+        candidate.totalScore,
+        candidate.percentage,
+        candidate.submittedAt
+      ]);
+
+      function csvCell(value) {
+        return '"' + String(value ?? "").replace(/"/g, '""') + '"';
+      }
+
+      const csv = [
+        headers,
+        ...rows
+      ].map(row => row.map(csvCell).join(",")).join("\r\n");
+
+      const blob = new Blob(
+        ["\uFEFF" + csv],
+        { type: "text/csv;charset=utf-8;" }
+      );
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "flexi-cbt-examination-results.csv";
+      link.click();
+
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+
+    // FIREBASE INITIALIZATION
+
+    try {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      auth = firebase.auth();
+
+      auth.onAuthStateChanged(user => {
+        if (user) {
+          $("adminEmail").textContent =
+            user.email || "Administrator";
+
+          showDashboard();
+          loadResults();
+        } else {
+          showLogin();
+        }
+      });
+
+    } catch (error) {
+      $("loginError").textContent =
+        "Firebase initialization failed: " + error.message;
+    }
+
+  </script>
+
+</body>
+</html>
