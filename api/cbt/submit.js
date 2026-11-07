@@ -1,147 +1,72 @@
-
 "use strict";
 
+const { getFirestore, admin } = require("../../lib/firebase-admin");
 const {
-  getFirestore,
-  admin
-} = require("../../lib/firebase-admin");
+  requireCandidateSession,
+  CbtAuthError
+} = require("../../lib/cbt-auth");
 
-const EXAM_ID =
-  process.env.CBT_EXAM_ID || "jamb-2026-11-28";
+const EXAM_ID = process.env.CBT_EXAM_ID || "jamb-2026-11-28";
+const PER_SUBJECT = 40;
 
-const SUBJECT_QUESTION_COUNT = 40;
-
-function send(res, status, payload) {
-  res.setHeader("Cache-Control", "no-store");
+function send(res, status, body) {
+  res.setHeader("Cache-Control", "no-store, max-age=0");
   res.setHeader("Pragma", "no-cache");
-  return res.status(status).json(payload);
+  return res.status(status).json(body);
 }
 
-function normalizePhone(value) {
-  return String(value || "").replace(/\D/g, "");
-}
-
-function getLookup(body) {
-  return String(
-    body?.whatsappNumber ||
-    body?.registrationNumber ||
-    ""
-  ).trim();
-}
-
-function validDate(value) {
+function toMillis(value) {
   if (!value) return null;
-
-  if (typeof value.toDate === "function") {
-    return value.toDate();
-  }
-
-  const date = new Date(value);
-
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value.toDate === "function") return value.toDate().getTime();
+  const n = typeof value === "number" ? value : Date.parse(value);
+  return Number.isFinite(n) ? n : null;
 }
 
-async function findCandidate(db, lookup) {
-  const registrations = await db
-    .collection("jamb_registrations")
-    .get();
-
-  const phone = normalizePhone(lookup);
-  const registration = lookup.toUpperCase();
-  const matches = [];
-
-  for (const doc of registrations.docs) {
-    const data = doc.data();
-
-    const phoneMatches =
-      phone &&
-      normalizePhone(data.whatsappNumber) === phone;
-
-    const registrationMatches =
-      String(data.registrationNumber || "")
-        .trim()
-        .toUpperCase() === registration;
-
-    if (phoneMatches || registrationMatches) {
-      matches.push({
-        id: doc.id,
-        ...data
-      });
-    }
-  }
-
-  if (matches.length === 0) {
-    return { error: "CANDIDATE_NOT_FOUND" };
-  }
-
-  if (matches.length > 1) {
-    return { error: "AMBIGUOUS_CANDIDATE" };
-  }
-
-  return { candidate: matches[0] };
-}
-
-function calculateScores(questions, answers) {
+function calculateScores(questionSnapshot, answerDocs) {
   const subjectScores = {};
   let totalCorrect = 0;
-  let totalQuestions = 0;
   let totalAnswered = 0;
+  let totalQuestions = 0;
 
-  for (const [subject, subjectQuestions] of Object.entries(questions)) {
-    if (
-      !Array.isArray(subjectQuestions) ||
-      subjectQuestions.length !== SUBJECT_QUESTION_COUNT
-    ) {
+  for (const [subject, questions] of Object.entries(questionSnapshot)) {
+    if (!Array.isArray(questions) || questions.length !== PER_SUBJECT) {
       throw new Error("INVALID_QUESTION_SNAPSHOT");
     }
 
     let correct = 0;
     let answered = 0;
 
-    for (const question of subjectQuestions) {
+    for (const question of questions) {
+      const key = String(question.answer || "").toUpperCase();
       if (
         !question.id ||
-        !["A", "B", "C", "D"].includes(
-          String(question.answer || "").toUpperCase()
-        )
-      ) {
-        throw new Error("INVALID_ANSWER_KEY");
-      }
+        !["A", "B", "C", "D"].includes(key)
+      ) throw new Error("INVALID_ANSWER_KEY");
 
-      const selected = answers[question.id]?.selectedOption;
-
-      if (
-        selected &&
-        ["A", "B", "C", "D"].includes(
-          String(selected).toUpperCase()
-        )
-      ) {
-        answered++;
-
-        if (
-          String(selected).toUpperCase() ===
-          String(question.answer).toUpperCase()
-        ) {
-          correct++;
+      const selected = answerDocs[question.id]?.selectedOption;
+      if (selected !== null && selected !== undefined && selected !== "") {
+        const choice = String(selected).toUpperCase();
+        if (["A", "B", "C", "D"].includes(choice)) {
+          answered++;
+          if (choice === key) correct++;
         }
       }
     }
 
     subjectScores[subject] = {
-      totalQuestions: subjectQuestions.length,
+      totalQuestions: questions.length,
       answered,
-      unanswered: subjectQuestions.length - answered,
+      unanswered: questions.length - answered,
       correct,
       incorrect: answered - correct,
       score: correct,
-      percentage: Number(
-        ((correct / subjectQuestions.length) * 100).toFixed(2)
-      )
+      percentage: Number((correct / questions.length * 100).toFixed(2))
     };
 
     totalCorrect += correct;
     totalAnswered += answered;
-    totalQuestions += subjectQuestions.length;
+    totalQuestions += questions.length;
   }
 
   return {
@@ -152,223 +77,130 @@ function calculateScores(questions, answers) {
     totalCorrect,
     totalIncorrect: totalAnswered - totalCorrect,
     totalScore: totalCorrect,
-    percentage: Number(
-      ((totalCorrect / totalQuestions) * 100).toFixed(2)
-    )
+    percentage: totalQuestions
+      ? Number((totalCorrect / totalQuestions * 100).toFixed(2))
+      : 0
   };
 }
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
-    return send(res, 405, {
-      ok: false,
-      code: "METHOD_NOT_ALLOWED"
-    });
-  }
-
-  const lookup = getLookup(req.body);
-
-  if (!lookup || lookup.length > 40) {
-    return send(res, 400, {
-      ok: false,
-      code: "INVALID_LOOKUP"
-    });
+    res.setHeader("Allow", "POST");
+    return send(res, 405, { ok: false, code: "METHOD_NOT_ALLOWED" });
   }
 
   try {
+    const session = await requireCandidateSession(req);
+    if (session.examId !== EXAM_ID) {
+      return send(res, 403, { ok: false, code: "SESSION_EXAM_MISMATCH" });
+    }
+
     const db = getFirestore();
+    const attemptRef = db.collection("cbt_attempts").doc(session.attemptId);
+    const snapshotRef = attemptRef.collection("private").doc("question_snapshot");
+    const answersRef = attemptRef.collection("answers");
 
-    // 1. Find candidate.
-    const result = await findCandidate(db, lookup);
+    const final = await db.runTransaction(async tx => {
+      // Read all transaction inputs before writing. This ensures an answer
+      // save racing with submission either commits first or is rejected.
+      const [attemptSnap, questionSnap, answersSnap] = await Promise.all([
+        tx.get(attemptRef),
+        tx.get(snapshotRef),
+        tx.get(answersRef)
+      ]);
 
-    if (result.error) {
-      return send(
-        res,
-        result.error === "CANDIDATE_NOT_FOUND" ? 404 : 409,
-        {
-          ok: false,
-          code: result.error
-        }
-      );
-    }
+      if (!attemptSnap.exists) throw Object.assign(new Error("ATTEMPT_NOT_FOUND"), { status: 404 });
+      if (!questionSnap.exists) throw Object.assign(new Error("QUESTION_SNAPSHOT_NOT_FOUND"), { status: 409 });
 
-    const candidate = result.candidate;
-
-    // 2. Locate attempt.
-    const attemptId = `${EXAM_ID}_${candidate.id}`;
-
-    const attemptRef = db
-      .collection("cbt_attempts")
-      .doc(attemptId);
-
-    const snapshotRef = attemptRef
-      .collection("private")
-      .doc("question_snapshot");
-
-    // 3. Load private question snapshot.
-    const snapshotDoc = await snapshotRef.get();
-
-    if (!snapshotDoc.exists) {
-      return send(res, 409, {
-        ok: false,
-        code: "QUESTION_SNAPSHOT_NOT_FOUND"
-      });
-    }
-
-    const snapshot = snapshotDoc.data();
-
-    if (
-      snapshot.candidateId !== candidate.id ||
-      snapshot.examId !== EXAM_ID ||
-      snapshot.registrationNumber !== candidate.registrationNumber
-    ) {
-      return send(res, 403, {
-        ok: false,
-        code: "QUESTION_SNAPSHOT_IDENTITY_MISMATCH"
-      });
-    }
-
-    // 4. Load saved answers.
-    const answersSnapshot = await attemptRef
-      .collection("answers")
-      .get();
-
-    const savedAnswers = {};
-
-    for (const doc of answersSnapshot.docs) {
-      const data = doc.data();
+      const attempt = attemptSnap.data() || {};
+      const snapshot = questionSnap.data() || {};
 
       if (
-        data.attemptId === attemptId &&
-        data.candidateId === candidate.id
-      ) {
-        savedAnswers[doc.id] = {
-          selectedOption: data.selectedOption || null
-        };
-      }
-    }
+        attempt.candidateId !== session.candidateId ||
+        attempt.examId !== EXAM_ID ||
+        attempt.attemptId !== session.attemptId ||
+        snapshot.candidateId !== session.candidateId ||
+        snapshot.examId !== EXAM_ID
+      ) throw Object.assign(new Error("ATTEMPT_IDENTITY_MISMATCH"), { status: 403 });
 
-    // 5. Calculate marks on the server.
-    const scores = calculateScores(
-      snapshot.questions || {},
-      savedAnswers
-    );
-
-    // 6. Finalize atomically.
-    const finalResult = await db.runTransaction(
-      async transaction => {
-        const attemptDoc = await transaction.get(attemptRef);
-
-        if (!attemptDoc.exists) {
-          throw new Error("ATTEMPT_NOT_FOUND");
-        }
-
-        const attempt = attemptDoc.data();
-
-        if (
-          attempt.candidateId !== candidate.id ||
-          attempt.registrationNumber !== candidate.registrationNumber ||
-          attempt.examId !== EXAM_ID
-        ) {
-          throw new Error("ATTEMPT_IDENTITY_MISMATCH");
-        }
-
-        // Idempotent response for an already submitted attempt.
-        if (attempt.status === "submitted") {
-          return {
-            alreadySubmitted: true,
-            scores: attempt.results || null,
-            submittedAt: validDate(attempt.submittedAt)
-              ?.toISOString() || null
-          };
-        }
-
-        if (attempt.status === "expired") {
-          throw new Error("ATTEMPT_EXPIRED");
-        }
-
-        if (attempt.status !== "in_progress") {
-          throw new Error("ATTEMPT_NOT_ACTIVE");
-        }
-
-        const deadlineAt = validDate(attempt.deadlineAt);
-
-        if (!deadlineAt) {
-          throw new Error("INVALID_ATTEMPT_DEADLINE");
-        }
-
-        const now = Date.now();
-
-        // A candidate cannot submit after the official deadline.
-        if (now >= deadlineAt.getTime()) {
-          transaction.update(attemptRef, {
-            status: "expired",
-            expiredAt:
-              admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt:
-              admin.firestore.FieldValue.serverTimestamp()
-          });
-
-          throw new Error("ATTEMPT_EXPIRED");
-        }
-
-        const serverTimestamp =
-          admin.firestore.FieldValue.serverTimestamp();
-
-        transaction.update(attemptRef, {
-          status: "submitted",
-          submittedAt: serverTimestamp,
-          updatedAt: serverTimestamp,
-          results: scores,
-          answerCount: scores.totalAnswered,
-          totalScore: scores.totalScore,
-          percentage: scores.percentage
-        });
-
+      if (attempt.status === "submitted") {
         return {
-          alreadySubmitted: false,
-          scores,
-          submittedAt: new Date(now).toISOString()
+          alreadySubmitted: true,
+          submittedAt: toMillis(attempt.submittedAt)
+            ? new Date(toMillis(attempt.submittedAt)).toISOString()
+            : null
         };
       }
-    );
 
-    // 7. Return result summary.
+      if (attempt.status === "expired") {
+        throw Object.assign(new Error("ATTEMPT_EXPIRED"), { status: 409 });
+      }
+      if (attempt.status !== "in_progress") {
+        throw Object.assign(new Error("ATTEMPT_NOT_ACTIVE"), { status: 409 });
+      }
+
+      const deadline = toMillis(attempt.deadlineAt);
+      if (!deadline) throw Object.assign(new Error("INVALID_ATTEMPT_DEADLINE"), { status: 409 });
+
+      const answerMap = {};
+      for (const doc of answersSnap.docs) {
+        const data = doc.data() || {};
+        if (
+          data.attemptId === session.attemptId &&
+          data.candidateId === session.candidateId
+        ) {
+          answerMap[doc.id] = { selectedOption: data.selectedOption ?? null };
+        }
+      }
+
+      const scores = calculateScores(snapshot.questions || {}, answerMap);
+      const now = Date.now();
+
+      // Manual submit is allowed before the deadline. If the endpoint is
+      // invoked at/after the deadline, it finalizes the attempt as well.
+      const submittedAt = admin.firestore.FieldValue.serverTimestamp();
+      tx.update(attemptRef, {
+        status: "submitted",
+        submittedAt,
+        updatedAt: submittedAt,
+        submissionReason: now >= deadline ? "TIME_EXPIRED" : "CANDIDATE_SUBMITTED",
+        results: scores,
+        answerCount: scores.totalAnswered,
+        totalScore: scores.totalScore,
+        percentage: scores.percentage
+      });
+
+      return {
+        alreadySubmitted: false,
+        submittedAt: new Date(now).toISOString()
+      };
+    });
+
+    // Candidate receives a receipt only. Detailed scores remain server-side
+    // until an authorized results-release process is implemented.
     return send(res, 200, {
       ok: true,
-      code: finalResult.alreadySubmitted
-        ? "ATTEMPT_ALREADY_SUBMITTED"
-        : "EXAM_SUBMITTED",
-      attemptId,
-      submittedAt: finalResult.submittedAt,
-      results: finalResult.scores
+      code: final.alreadySubmitted ? "ATTEMPT_ALREADY_SUBMITTED" : "EXAM_SUBMITTED",
+      attemptId: session.attemptId,
+      submittedAt: final.submittedAt
     });
-
   } catch (error) {
-    const code = String(error.message || "");
-
-    const errors = {
-      ATTEMPT_NOT_FOUND: [404, "ATTEMPT_NOT_FOUND"],
-      ATTEMPT_NOT_ACTIVE: [409, "ATTEMPT_NOT_ACTIVE"],
-      ATTEMPT_IDENTITY_MISMATCH: [403, "ATTEMPT_IDENTITY_MISMATCH"],
-      INVALID_ATTEMPT_DEADLINE: [409, "INVALID_ATTEMPT_DEADLINE"],
-      ATTEMPT_EXPIRED: [409, "ATTEMPT_EXPIRED"],
-      INVALID_QUESTION_SNAPSHOT: [409, "INVALID_QUESTION_SNAPSHOT"],
-      INVALID_ANSWER_KEY: [409, "INVALID_ANSWER_KEY"]
-    };
-
-    if (errors[code]) {
-      return send(res, errors[code][0], {
-        ok: false,
-        code: errors[code][1]
-      });
+    if (error instanceof CbtAuthError) {
+      return send(res, error.status || 401, { ok: false, code: error.code });
     }
-
+    const code = String(error.message || "");
+    const known = {
+      ATTEMPT_NOT_FOUND: 404,
+      QUESTION_SNAPSHOT_NOT_FOUND: 409,
+      ATTEMPT_IDENTITY_MISMATCH: 403,
+      ATTEMPT_NOT_ACTIVE: 409,
+      ATTEMPT_EXPIRED: 409,
+      INVALID_ATTEMPT_DEADLINE: 409,
+      INVALID_QUESTION_SNAPSHOT: 409,
+      INVALID_ANSWER_KEY: 409
+    };
+    if (known[code]) return send(res, known[code], { ok: false, code });
     console.error("CBT SUBMISSION ERROR:", error);
-
-    return send(res, 500, {
-      ok: false,
-      code: "EXAM_SUBMISSION_FAILED"
-    });
+    return send(res, 500, { ok: false, code: "EXAM_SUBMISSION_FAILED" });
   }
 };

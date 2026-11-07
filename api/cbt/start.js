@@ -1,8 +1,11 @@
 "use strict";
 
+const { getFirebaseAdmin } = require("../../lib/firebase-admin");
 const {
-  getFirebaseAdmin
-} = require("../../lib/firebase-admin");
+  createCandidateSession,
+  requireCandidateSession,
+  CbtAuthError
+} = require("../../lib/cbt-auth");
 
 const EXAM_DATE = "2026-11-28";
 const DEFAULT_EXAM_ID = "jamb-2026-11-28";
@@ -13,101 +16,59 @@ function normalizePhone(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
-function validSubjects(subjects) {
-  if (!Array.isArray(subjects) || subjects.length !== 4) {
-    return false;
-  }
-
-  const cleaned = subjects.map(subject =>
-    String(subject || "").trim().toLowerCase()
-  );
-
-  return cleaned.every(Boolean) &&
-    new Set(cleaned).size === 4;
-}
-
 function toMillis(value) {
   if (!value) return null;
-
-  if (typeof value.toMillis === "function") {
-    return value.toMillis();
-  }
-
-  if (typeof value.toDate === "function") {
-    return value.toDate().getTime();
-  }
-
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value.toDate === "function") return value.toDate().getTime();
+  if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
     const parsed = Date.parse(value);
     return Number.isFinite(parsed) ? parsed : null;
   }
-
   return null;
 }
 
 function getScheduleStartMillis(schedule) {
-  const savedTimestamp = toMillis(schedule.scheduledAt);
-
-  if (savedTimestamp !== null) {
-    return savedTimestamp;
-  }
-
-  if (schedule.examDate !== EXAM_DATE) {
-    return null;
-  }
+  const saved = toMillis(schedule.scheduledAt);
+  if (saved !== null) return saved;
+  if (schedule.examDate !== EXAM_DATE) return null;
 
   const time24 = String(schedule.time24 || "").trim();
-
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time24)) {
-    return null;
-  }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time24)) return null;
 
   const [hour, minute] = time24.split(":").map(Number);
-
-  // Saved schedule is WAT (UTC+1).
   return Date.UTC(2026, 10, 28, hour - 1, minute, 0);
-}
-
-function getCandidateName(candidate) {
-  if (candidate.fullName) {
-    return String(candidate.fullName).trim();
-  }
-
-  if (candidate.name) {
-    return String(candidate.name).trim();
-  }
-
-  return [
-    candidate.firstName,
-    candidate.lastName
-  ].filter(Boolean).join(" ").trim();
 }
 
 function candidateMatches(candidate, lookup) {
   const digits = normalizePhone(lookup);
-  const registrationLookup = String(lookup)
-    .trim()
-    .toUpperCase();
-
-  const storedPhone = normalizePhone(
-    candidate.whatsappNumber
-  );
-
-  const storedRegistration = String(
-    candidate.registrationNumber || ""
-  ).trim().toUpperCase();
-
+  const registrationLookup = String(lookup).trim().toUpperCase();
   return (
-    (digits.length >= 8 && storedPhone === digits) ||
-    (
-      registrationLookup &&
-      storedRegistration === registrationLookup
-    )
+    (digits.length >= 8 && normalizePhone(candidate.whatsappNumber) === digits) ||
+    (registrationLookup &&
+      String(candidate.registrationNumber || "").trim().toUpperCase() === registrationLookup)
   );
+}
+
+function getCandidateName(candidate) {
+  return String(
+    candidate.fullName ||
+    candidate.name ||
+    [candidate.firstName, candidate.lastName].filter(Boolean).join(" ") ||
+    ""
+  ).trim();
+}
+
+function validSubjects(subjects) {
+  if (!Array.isArray(subjects) || subjects.length !== 4) return false;
+  const cleaned = subjects.map(x => String(x || "").trim().toLowerCase());
+  return cleaned.every(Boolean) && new Set(cleaned).size === 4;
+}
+
+function getEntryWindowSeconds() {
+  const value = Number.parseInt(process.env.CBT_START_WINDOW_SECONDS || "60", 10);
+  if (!Number.isFinite(value) || value < 0) return 60;
+  return Math.min(value, 300);
 }
 
 function validSchedule(schedule) {
@@ -115,483 +76,247 @@ function validSchedule(schedule) {
     schedule &&
     schedule.batch &&
     schedule.examDate === EXAM_DATE &&
-    (
-      !schedule.timeZone ||
-      schedule.timeZone === "Africa/Lagos"
-    )
+    (!schedule.timeZone || schedule.timeZone === "Africa/Lagos")
   );
 }
 
-function getEntryWindowSeconds() {
-  const configured = Number.parseInt(
-    process.env.CBT_START_WINDOW_SECONDS || "60",
-    10
-  );
-
-  if (!Number.isFinite(configured) || configured < 0) {
-    return 60;
-  }
-
-  return Math.min(configured, 300);
-}
-
-function respond(res, status, data) {
+function send(res, status, body) {
   res.setHeader("Cache-Control", "no-store, max-age=0");
   res.setHeader("Pragma", "no-cache");
-
-  return res.status(status).json(data);
+  return res.status(status).json(body);
 }
 
-function candidateResponse(candidate, schedule) {
-  return {
-    registrationNumber: candidate.registrationNumber,
-    fullName: getCandidateName(candidate),
-    jambSubjects: candidate.jambSubjects,
-
-    schedule: {
-      batch: schedule.batch,
-      time: schedule.time || null,
-      time24: schedule.time24 || null,
-      examDate: schedule.examDate,
-      timeZone: schedule.timeZone || "Africa/Lagos"
-    }
-  };
-}
-
-function flagForReview(transaction, attemptRef, admin, reason) {
-  transaction.update(attemptRef, {
-    status: "review_required",
-    reviewReason: reason,
-    reviewRequiredAt:
-      admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt:
-      admin.firestore.FieldValue.serverTimestamp()
-  });
+function bearerToken(req) {
+  const match = String(req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
+  return match ? match[1] : null;
 }
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
-
-    return respond(res, 405, {
-      ok: false,
-      code: "METHOD_NOT_ALLOWED"
-    });
+    return send(res, 405, { ok: false, code: "METHOD_NOT_ALLOWED" });
   }
 
   const lookup = String(
-    req.body?.whatsappNumber ||
-    req.body?.registrationNumber ||
-    ""
+    req.body?.whatsappNumber || req.body?.registrationNumber || ""
   ).trim();
 
   if (!lookup || lookup.length > 40) {
-    return respond(res, 400, {
-      ok: false,
-      code: "INVALID_LOOKUP"
-    });
+    return send(res, 400, { ok: false, code: "INVALID_LOOKUP" });
   }
 
-  let admin;
-
   try {
-    admin = getFirebaseAdmin();
-  } catch (error) {
-    console.error(
-      "Firebase initialisation error:",
-      error.code || error.message
+    const firebase = getFirebaseAdmin();
+    const db = firebase.firestore();
+    const registrations = await db.collection("jamb_registrations").get();
+    const matches = registrations.docs.filter(doc =>
+      candidateMatches(doc.data() || {}, lookup)
     );
 
-    return respond(res, 503, {
-      ok: false,
-      code: "SERVICE_NOT_CONFIGURED"
-    });
-  }
-
-  try {
-    const db = admin.firestore();
-
-    const registrations = await db
-      .collection("jamb_registrations")
-      .get();
-
-    const matches = registrations.docs.filter(doc => {
-      return candidateMatches(doc.data() || {}, lookup);
-    });
-
-    if (matches.length === 0) {
-      return respond(res, 404, {
-        ok: false,
-        code: "CANDIDATE_NOT_FOUND"
-      });
-    }
-
-    if (matches.length > 1) {
-      return respond(res, 409, {
-        ok: false,
-        code: "AMBIGUOUS_CANDIDATE"
-      });
-    }
+    if (!matches.length) return send(res, 404, { ok: false, code: "CANDIDATE_NOT_FOUND" });
+    if (matches.length > 1) return send(res, 409, { ok: false, code: "AMBIGUOUS_CANDIDATE" });
 
     const registrationDoc = matches[0];
+    const candidate = registrationDoc.data() || {};
+    const candidateId = registrationDoc.id;
+    const registrationNumber = String(candidate.registrationNumber || "").trim();
+    const fullName = getCandidateName(candidate);
+    const subjects = Array.isArray(candidate.jambSubjects)
+      ? candidate.jambSubjects.map(x => String(x || "").trim())
+      : [];
 
-    const examId =
-      process.env.CBT_EXAM_ID || DEFAULT_EXAM_ID;
+    if (!registrationNumber || !fullName || !validSubjects(subjects)) {
+      return send(res, 422, { ok: false, code: "INCOMPLETE_REGISTRATION" });
+    }
 
-    const attemptId = `${examId}_${registrationDoc.id}`;
+    const schedule = candidate.examSchedule || {};
+    if (!validSchedule(schedule)) {
+      return send(res, 422, { ok: false, code: "INVALID_OR_MISSING_SCHEDULE" });
+    }
 
-    const registrationRef = db
-      .collection("jamb_registrations")
-      .doc(registrationDoc.id);
+    const scheduledAt = getScheduleStartMillis(schedule);
+    if (scheduledAt === null) {
+      return send(res, 422, { ok: false, code: "INVALID_SCHEDULE_TIME" });
+    }
 
-    const attemptRef = db
-      .collection("cbt_attempts")
-      .doc(attemptId);
+    const examId = process.env.CBT_EXAM_ID || DEFAULT_EXAM_ID;
+    const attemptId = `${examId}_${candidateId}`;
+    const attemptRef = db.collection("cbt_attempts").doc(attemptId);
+    const now = Date.now();
+    const deadline = scheduledAt + DURATION_MILLIS;
+    const existingToken = bearerToken(req);
 
-    let outcome;
+    let attemptResult;
 
-    await db.runTransaction(async transaction => {
-      // Read all documents before writing anything.
-      const registrationSnapshot =
-        await transaction.get(registrationRef);
-
-      const attemptSnapshot =
-        await transaction.get(attemptRef);
-
-      if (!registrationSnapshot.exists) {
-        outcome = {
-          status: 404,
-          body: {
-            ok: false,
-            code: "CANDIDATE_NOT_FOUND"
-          }
-        };
-        return;
+    if (existingToken) {
+      // A page refresh may call start again. Validate and reuse its
+      // existing session rather than creating a competing session.
+      const session = await requireCandidateSession(req);
+      if (session.candidateId !== candidateId || session.attemptId !== attemptId) {
+        return send(res, 403, { ok: false, code: "SESSION_IDENTITY_MISMATCH" });
       }
-
-      const candidate = registrationSnapshot.data() || {};
-
-      // Revalidate identity using the latest registration.
-      if (!candidateMatches(candidate, lookup)) {
-        outcome = {
-          status: 409,
-          body: {
-            ok: false,
-            code: "REGISTRATION_CHANGED"
-          }
-        };
-        return;
+      const attemptSnap = await attemptRef.get();
+      if (!attemptSnap.exists) return send(res, 404, { ok: false, code: "ATTEMPT_NOT_FOUND" });
+      const attempt = attemptSnap.data() || {};
+      if (attempt.status !== "in_progress") {
+        return send(res, 409, { ok: false, code: "ATTEMPT_NOT_ACTIVE" });
       }
+      attemptResult = {
+        resumed: true,
+        startedAt: toMillis(attempt.startedAt),
+        deadlineAt: toMillis(attempt.deadlineAt),
+        token: existingToken
+      };
+    } else {
+      await db.runTransaction(async tx => {
+        const snap = await tx.get(attemptRef);
 
-      const fullName = getCandidateName(candidate);
-
-      if (
-        !candidate.registrationNumber ||
-        !fullName ||
-        !validSubjects(candidate.jambSubjects)
-      ) {
-        outcome = {
-          status: 422,
-          body: {
-            ok: false,
-            code: "INCOMPLETE_REGISTRATION"
-          }
-        };
-        return;
-      }
-
-      const schedule = candidate.examSchedule || {};
-
-      if (!validSchedule(schedule)) {
-        outcome = {
-          status: 422,
-          body: {
-            ok: false,
-            code: "INVALID_OR_MISSING_SCHEDULE"
-          }
-        };
-        return;
-      }
-
-      const scheduledAt = getScheduleStartMillis(schedule);
-
-      if (scheduledAt === null) {
-        outcome = {
-          status: 422,
-          body: {
-            ok: false,
-            code: "INVALID_SCHEDULE_TIME"
-          }
-        };
-        return;
-      }
-
-      const now = Date.now();
-
-      // The batch deadline is fixed and shared by everyone
-      // in that batch. It is NOT based on an individual click.
-      const batchDeadline = scheduledAt + DURATION_MILLIS;
-
-      // --------------------------------------------------
-      // EXISTING ATTEMPT: RESUME, EXPIRE OR BLOCK
-      // --------------------------------------------------
-
-      if (attemptSnapshot.exists) {
-        const existing = attemptSnapshot.data() || {};
-
-        if (
-          existing.attemptId !== attemptId ||
-          existing.examId !== examId ||
-          existing.candidateId !== registrationDoc.id
-        ) {
-          flagForReview(
-            transaction,
-            attemptRef,
-            admin,
-            "ATTEMPT_IDENTITY_MISMATCH"
-          );
-
-          outcome = {
-            status: 409,
-            body: {
-              ok: false,
-              code: "ATTEMPT_REQUIRES_ADMIN_REVIEW"
-            }
-          };
-          return;
-        }
-
-        if (
-          existing.status === "submitted" ||
-          existing.status === "expired"
-        ) {
-          outcome = {
-            status: 409,
-            body: {
-              ok: false,
-              code: "ATTEMPT_ALREADY_USED"
-            }
-          };
-          return;
-        }
-
-        if (existing.status === "in_progress") {
-          const startedAt = toMillis(existing.startedAt);
-          const deadlineAt = toMillis(existing.deadlineAt);
-          const savedSchedule = toMillis(existing.scheduledAt);
-
-          const timestampsValid =
-            startedAt !== null &&
-            deadlineAt !== null &&
-            savedSchedule !== null &&
-            savedSchedule === scheduledAt &&
-            startedAt >= scheduledAt &&
-            startedAt <= now &&
-            deadlineAt === batchDeadline;
-
-          if (!timestampsValid) {
-            flagForReview(
-              transaction,
-              attemptRef,
-              admin,
-              "INVALID_ATTEMPT_TIMESTAMPS"
-            );
-
-            outcome = {
-              status: 409,
-              body: {
-                ok: false,
-                code: "ATTEMPT_REQUIRES_ADMIN_REVIEW"
-              }
-            };
-            return;
+        if (snap.exists) {
+          const old = snap.data() || {};
+          if (
+            old.attemptId !== attemptId ||
+            old.examId !== examId ||
+            old.candidateId !== candidateId ||
+            old.registrationNumber !== registrationNumber
+          ) {
+            throw Object.assign(new Error("ATTEMPT_REQUIRES_ADMIN_REVIEW"), { status: 409 });
           }
 
-          // Deadline reached: permanently expire this attempt.
-          if (now >= deadlineAt) {
-            transaction.update(attemptRef, {
+          if (old.status === "submitted" || old.status === "expired") {
+            throw Object.assign(new Error("ATTEMPT_ALREADY_USED"), { status: 409 });
+          }
+
+          if (old.status !== "in_progress") {
+            throw Object.assign(new Error("ATTEMPT_NOT_ACTIVE"), { status: 409 });
+          }
+
+          const startedAt = toMillis(old.startedAt);
+          const savedDeadline = toMillis(old.deadlineAt);
+          const savedSchedule = toMillis(old.scheduledAt);
+
+          if (
+            startedAt === null ||
+            savedDeadline !== deadline ||
+            savedSchedule !== scheduledAt ||
+            startedAt < scheduledAt ||
+            startedAt > now
+          ) {
+            throw Object.assign(new Error("ATTEMPT_REQUIRES_ADMIN_REVIEW"), { status: 409 });
+          }
+
+          if (now >= savedDeadline) {
+            tx.update(attemptRef, {
               status: "expired",
-              expiredAt:
-                admin.firestore.FieldValue.serverTimestamp(),
-              updatedAt:
-                admin.firestore.FieldValue.serverTimestamp(),
+              expiredAt: firebase.firestore.FieldValue.serverTimestamp(),
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
               expiryReason: "BATCH_DEADLINE_REACHED"
             });
-
-            outcome = {
-              status: 409,
-              body: {
-                ok: false,
-                code: "ATTEMPT_ALREADY_USED"
-              }
-            };
-            return;
+            throw Object.assign(new Error("ATTEMPT_ALREADY_USED"), { status: 409 });
           }
 
-          // Resume using the original deadline.
-          outcome = {
-            status: 200,
-            body: {
-              ok: true,
-              code: "ATTEMPT_RESUME",
-              resumed: true,
-
-              attempt: {
-                attemptId,
-                status: "in_progress",
-                startedAt: new Date(startedAt).toISOString(),
-                deadlineAt: new Date(deadlineAt).toISOString(),
-                durationSeconds: DURATION_SECONDS
-              },
-
-              candidate: candidateResponse(
-                candidate,
-                schedule
-              )
-            }
-          };
+          attemptResult = { resumed: true, startedAt, deadlineAt: savedDeadline };
           return;
         }
 
-        // Do not silently replace unknown or flagged attempts.
-        if (existing.status !== "review_required") {
-          flagForReview(
-            transaction,
-            attemptRef,
-            admin,
-            "UNKNOWN_ATTEMPT_STATUS"
-          );
+        const entryEndsAt = scheduledAt + getEntryWindowSeconds() * 1000;
+        if (now < scheduledAt) {
+          throw Object.assign(new Error("TOO_EARLY"), { status: 403 });
+        }
+        if (now > entryEndsAt) {
+          throw Object.assign(new Error("ENTRY_WINDOW_CLOSED"), { status: 403 });
+        }
+        if (now >= deadline) {
+          throw Object.assign(new Error("BATCH_DEADLINE_REACHED"), { status: 403 });
         }
 
-        outcome = {
-          status: 409,
-          body: {
-            ok: false,
-            code: "ATTEMPT_REQUIRES_ADMIN_REVIEW"
-          }
+        const Timestamp = firebase.firestore.Timestamp;
+        const started = Timestamp.fromMillis(now);
+        const deadlineTimestamp = Timestamp.fromMillis(deadline);
+
+        tx.create(attemptRef, {
+          attemptId,
+          examId,
+          candidateId,
+          registrationNumber,
+          fullName,
+          subjects,
+          status: "in_progress",
+          scheduledAt: Timestamp.fromMillis(scheduledAt),
+          startedAt: started,
+          deadlineAt: deadlineTimestamp,
+          durationSeconds: DURATION_SECONDS,
+          submittedAt: null,
+          expiredAt: null,
+          score: null,
+          subjectScores: {},
+          createdAt: started,
+          updatedAt: started
+        });
+
+        attemptResult = {
+          resumed: false,
+          startedAt: now,
+          deadlineAt: deadline
         };
-        return;
-      }
+      });
 
-      // --------------------------------------------------
-      // NEW ATTEMPT: CHECK THE ORIGINAL ENTRY WINDOW
-      // --------------------------------------------------
-
-      const entryEndsAt =
-        scheduledAt + getEntryWindowSeconds() * 1000;
-
-      if (now < scheduledAt) {
-        outcome = {
-          status: 403,
-          body: {
-            ok: false,
-            code: "TOO_EARLY",
-            scheduledAt: new Date(scheduledAt).toISOString()
-          }
-        };
-        return;
-      }
-
-      if (now > entryEndsAt) {
-        outcome = {
-          status: 403,
-          body: {
-            ok: false,
-            code: "ENTRY_WINDOW_CLOSED",
-            scheduledAt: new Date(scheduledAt).toISOString()
-          }
-        };
-        return;
-      }
-
-      if (now >= batchDeadline) {
-        outcome = {
-          status: 403,
-          body: {
-            ok: false,
-            code: "BATCH_DEADLINE_REACHED"
-          }
-        };
-        return;
-      }
-
-      // --------------------------------------------------
-      // CREATE THE ATTEMPT
-      // --------------------------------------------------
-
-      const Timestamp = admin.firestore.Timestamp;
-
-      const startedAt = Timestamp.fromMillis(now);
-
-      // IMPORTANT:
-      // The deadline is based on the saved batch schedule,
-      // not the candidate's individual start-click time.
-      const deadlineAt = Timestamp.fromMillis(batchDeadline);
-
-      const attemptData = {
+      const session = await createCandidateSession({
+        candidateId,
         attemptId,
         examId,
+        deadlineAt: attemptResult.deadlineAt
+      });
+      attemptResult.token = session.token;
+    }
 
-        candidateId: registrationDoc.id,
-        registrationNumber: candidate.registrationNumber,
-        fullName,
+    if (
+      !Number.isFinite(attemptResult.deadlineAt) ||
+      now >= attemptResult.deadlineAt
+    ) {
+      return send(res, 409, { ok: false, code: "EXAM_TIME_EXPIRED" });
+    }
 
-        subjects: candidate.jambSubjects.map(
-          subject => String(subject).trim()
-        ),
-
+    return send(res, attemptResult.resumed ? 200 : 201, {
+      ok: true,
+      code: attemptResult.resumed ? "ATTEMPT_RESUME" : "ATTEMPT_STARTED",
+      resumed: attemptResult.resumed,
+      token: attemptResult.token,
+      attempt: {
+        attemptId,
         status: "in_progress",
-
-        scheduledAt: Timestamp.fromMillis(scheduledAt),
-        startedAt,
-        deadlineAt,
-
-        durationSeconds: DURATION_SECONDS,
-
-        submittedAt: null,
-        expiredAt: null,
-
-        score: null,
-        subjectScores: {},
-
-        createdAt: startedAt,
-        updatedAt: startedAt
-      };
-
-      // Atomic creation prevents duplicate starts.
-      transaction.create(attemptRef, attemptData);
-
-      outcome = {
-        status: 201,
-        body: {
-          ok: true,
-          code: "ATTEMPT_STARTED",
-          resumed: false,
-
-          attempt: {
-            attemptId,
-            status: "in_progress",
-            startedAt: startedAt.toDate().toISOString(),
-            deadlineAt: deadlineAt.toDate().toISOString(),
-            durationSeconds: DURATION_SECONDS
-          },
-
-          candidate: candidateResponse(
-            candidate,
-            schedule
-          )
+        startedAt: new Date(attemptResult.startedAt).toISOString(),
+        deadlineAt: new Date(attemptResult.deadlineAt).toISOString(),
+        durationSeconds: DURATION_SECONDS
+      },
+      candidate: {
+        fullName,
+        registrationNumber,
+        jambSubjects: subjects,
+        schedule: {
+          batch: schedule.batch,
+          time: schedule.time || null,
+          time24: schedule.time24 || null,
+          examDate: schedule.examDate,
+          timeZone: schedule.timeZone || "Africa/Lagos"
         }
-      };
+      }
     });
-
-    return respond(res, outcome.status, outcome.body);
-
   } catch (error) {
-    console.error("Attempt start failed:", error);
-
-    return respond(res, 500, {
-      ok: false,
-      code: "ATTEMPT_START_FAILED"
-    });
+    if (error instanceof CbtAuthError) {
+      return send(res, error.status || 401, { ok: false, code: error.code });
+    }
+    const code = String(error.message || "");
+    const known = {
+      TOO_EARLY: 403,
+      ENTRY_WINDOW_CLOSED: 403,
+      BATCH_DEADLINE_REACHED: 403,
+      ATTEMPT_ALREADY_USED: 409,
+      ATTEMPT_NOT_ACTIVE: 409,
+      ATTEMPT_REQUIRES_ADMIN_REVIEW: 409,
+      SESSION_ALREADY_ACTIVE: 409
+    };
+    if (known[code]) return send(res, known[code], { ok: false, code });
+    console.error("CBT START ERROR:", error);
+    return send(res, 500, { ok: false, code: "ATTEMPT_START_FAILED" });
   }
 };
