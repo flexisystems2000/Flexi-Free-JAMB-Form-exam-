@@ -1,0 +1,1375 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#15803d">
+<title>Flexi Educational Consult | CBT Examination</title>
+
+<style>
+:root {
+  --green:#15803d;
+  --dark:#14532d;
+  --light:#f0fdf4;
+  --border:#d1d5db;
+  --text:#172033;
+  --muted:#64748b;
+  --danger:#dc2626;
+}
+* {box-sizing:border-box}
+body {
+  margin:0;
+  background:#f1f5f9;
+  color:var(--text);
+  font-family:Arial,Helvetica,sans-serif;
+}
+button {font:inherit;cursor:pointer}
+button:disabled {opacity:.5;cursor:not-allowed}
+header {
+  background:var(--green);
+  color:white;
+  padding:14px 16px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.brand {font-weight:800;font-size:17px}
+.header-small {font-size:12px;margin-top:4px;opacity:.9}
+.timer-box {
+  background:white;
+  color:var(--dark);
+  padding:9px 14px;
+  border-radius:8px;
+  font-weight:800;
+  font-size:21px;
+  min-width:110px;
+  text-align:center;
+}
+.timer-box.warning {color:var(--danger)}
+.container {
+  width:min(1200px,100%);
+  margin:18px auto;
+  padding:0 12px;
+}
+.candidate-bar {
+  background:white;
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:13px;
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  font-size:13px;
+}
+.statuses {
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-top:10px;
+  font-size:12px;
+}
+.status {display:flex;align-items:center;gap:5px}
+.dot {
+  width:9px;height:9px;border-radius:50%;
+  background:#94a3b8;display:inline-block;
+}
+.dot.good {background:#16a34a}
+.dot.bad {background:#dc2626}
+.subject-tabs {
+  display:flex;
+  overflow-x:auto;
+  gap:7px;
+  margin:16px 0 10px;
+  padding-bottom:4px;
+}
+.subject-tab {
+  border:1px solid var(--border);
+  background:white;
+  color:var(--text);
+  border-radius:8px;
+  padding:11px 15px;
+  white-space:nowrap;
+  font-weight:700;
+}
+.subject-tab.active {
+  background:var(--green);
+  border-color:var(--green);
+  color:white;
+}
+.progress-line {
+  height:7px;background:#e2e8f0;
+  border-radius:20px;overflow:hidden;
+  margin:10px 0 16px;
+}
+.progress-fill {
+  height:100%;width:0;background:#22c55e;
+  transition:width .2s;
+}
+.exam-layout {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 250px;
+  gap:15px;
+}
+.panel {
+  background:white;
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:17px;
+}
+.question-top {
+  display:flex;justify-content:space-between;
+  gap:10px;flex-wrap:wrap;
+  color:var(--muted);font-size:13px;
+  margin-bottom:18px;
+}
+.question-text {
+  font-size:17px;line-height:1.7;
+  font-weight:600;white-space:pre-wrap;
+  margin-bottom:20px;
+}
+.options {display:grid;gap:10px}
+.option {
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:13px;
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  line-height:1.5;
+  cursor:pointer;
+}
+.option:hover {border-color:var(--green);background:var(--light)}
+.option.selected {
+  border:2px solid var(--green);
+  background:var(--light);
+}
+.option input {margin-top:4px;accent-color:var(--green)}
+.nav-actions {
+  display:flex;justify-content:space-between;
+  gap:10px;margin-top:25px;flex-wrap:wrap;
+}
+.btn {
+  border:0;border-radius:7px;
+  padding:11px 17px;font-weight:700;
+}
+.btn-green {background:var(--green);color:white}
+.btn-light {background:#e2e8f0;color:#172033}
+.btn-red {background:#dc2626;color:white}
+.question-grid {
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:7px;margin-top:12px;
+}
+.q-number {
+  border:1px solid var(--border);
+  background:white;border-radius:6px;
+  min-height:37px;font-size:13px;
+}
+.q-number.current {
+  background:#dbeafe;border:2px solid #2563eb;
+}
+.q-number.answered {
+  background:#dcfce7;border-color:#16a34a;
+}
+.legend {
+  display:flex;gap:10px;flex-wrap:wrap;
+  font-size:11px;color:var(--muted);
+  margin-top:13px;
+}
+.legend span {display:flex;align-items:center;gap:4px}
+.legend i {width:9px;height:9px;border-radius:2px;display:inline-block}
+.save-status {
+  font-size:12px;color:var(--muted);
+  margin-top:12px;min-height:16px;
+}
+.tools {
+  display:flex;gap:8px;flex-wrap:wrap;
+  margin-top:12px;
+}
+.small-btn {
+  border:1px solid var(--border);
+  background:white;border-radius:7px;
+  padding:8px 10px;font-size:12px;
+}
+.notice {
+  padding:10px 12px;border-radius:8px;
+  background:#eff6ff;color:#1e40af;
+  font-size:12px;line-height:1.5;
+  margin-top:13px;
+}
+.overlay {
+  position:fixed;inset:0;background:#0009;
+  display:none;align-items:center;
+  justify-content:center;padding:15px;
+  z-index:1000;
+}
+.modal {
+  width:min(440px,100%);
+  background:white;border-radius:12px;
+  padding:22px;max-height:90vh;overflow:auto;
+}
+.modal h2 {margin-top:0}
+.modal-actions {
+  display:flex;justify-content:flex-end;
+  gap:8px;flex-wrap:wrap;margin-top:20px;
+}
+#cameraPreview {
+  width:100%;max-height:180px;
+  background:#111;border-radius:8px;
+  object-fit:cover;transform:scaleX(-1);
+}
+.calc-display {
+  width:100%;padding:13px;
+  font-size:22px;text-align:right;
+  border:1px solid var(--border);
+  border-radius:7px;margin-bottom:10px;
+}
+.calc-grid {
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:7px;
+}
+.calc-grid button {
+  padding:13px 5px;border:1px solid var(--border);
+  background:#f8fafc;border-radius:6px;
+}
+#loadingScreen {
+  position:fixed;inset:0;background:#f1f5f9;
+  display:flex;align-items:center;justify-content:center;
+  z-index:2000;padding:20px;text-align:center;
+}
+.loading-card {
+  background:white;padding:25px;border-radius:12px;
+  width:min(420px,100%);border:1px solid var(--border);
+}
+.hidden {display:none!important}
+footer {
+  text-align:center;color:var(--muted);
+  font-size:11px;padding:20px;
+}
+@media(max-width:800px) {
+  .exam-layout {grid-template-columns:1fr}
+  .question-grid {grid-template-columns:repeat(8,1fr)}
+}
+@media(max-width:430px) {
+  .question-grid {grid-template-columns:repeat(6,1fr)}
+  .question-text {font-size:16px}
+  .panel {padding:13px}
+}
+</style>
+</head>
+
+<body>
+
+<div id="loadingScreen">
+  <div class="loading-card">
+    <h2>Flexi CBT Examination</h2>
+    <p id="loadingMessage">Preparing your examination...</p>
+  </div>
+</div>
+
+<header>
+  <div>
+    <div class="brand">FLEXI EDUCATIONAL CONSULT</div>
+    <div class="header-small">Free JAMB Form Initiative · Examination Portal</div>
+  </div>
+  <div>
+    <div class="header-small">TIME REMAINING</div>
+    <div class="timer-box" id="timer">--:--</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <section class="candidate-bar">
+    <div>
+      <strong id="candidateName">Candidate</strong>
+      <div class="header-small" style="color:#64748b" id="candidateReg"></div>
+    </div>
+    <div>
+      <strong id="examProgress">0 / 160 answered</strong>
+      <div class="header-small" style="color:#64748b" id="examDeadline"></div>
+    </div>
+  </section>
+
+  <div class="statuses">
+    <span class="status">
+      <i class="dot" id="cameraDot"></i>
+      Camera <strong id="cameraStatus">Checking</strong>
+    </span>
+    <span class="status">
+      <i class="dot" id="micDot"></i>
+      Microphone <strong id="micStatus">Checking</strong>
+    </span>
+    <span class="status">
+      <i class="dot good" id="saveDot"></i>
+      <strong id="saveLabel">Autosave ready</strong>
+    </span>
+  </div>
+
+  <div class="subject-tabs" id="subjectTabs"></div>
+
+  <div class="progress-line">
+    <div class="progress-fill" id="progressFill"></div>
+  </div>
+
+  <main class="exam-layout">
+    <section class="panel">
+      <div class="question-top">
+        <span id="subjectLabel">Subject</span>
+        <span id="questionLabel">Question 1</span>
+      </div>
+
+      <div class="question-text" id="questionText">
+        Loading question...
+      </div>
+
+      <div class="options" id="options"></div>
+
+      <div class="save-status" id="saveStatus">
+        Your answers are saved automatically.
+      </div>
+
+      <div class="nav-actions">
+        <button class="btn btn-light" id="previousBtn">Previous</button>
+        <button class="btn btn-green" id="nextBtn">Next</button>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <strong>Question Navigation</strong>
+      <p style="font-size:12px;color:#64748b">
+        Select a question number to move directly to it.
+      </p>
+
+      <div class="question-grid" id="questionGrid"></div>
+
+      <div class="legend">
+        <span><i style="background:#dcfce7;border:1px solid #16a34a"></i> Answered</span>
+        <span><i style="background:#dbeafe;border:1px solid #2563eb"></i> Current</span>
+        <span><i style="background:white;border:1px solid #cbd5e1"></i> Unanswered</span>
+      </div>
+
+      <div class="tools">
+        <button class="small-btn" id="calculatorBtn">Basic Calculator</button>
+        <button class="small-btn" id="fullscreenBtn">Fullscreen</button>
+      </div>
+
+      <div class="notice">
+        Your examination timer continues even if your internet connection
+        or camera/microphone is interrupted.
+      </div>
+
+      <button class="btn btn-red" id="submitBtn"
+        style="width:100%;margin-top:18px">
+        Submit Examination
+      </button>
+    </aside>
+  </main>
+</div>
+
+<footer>
+  Flexi Educational Consult · Examination Integrity System
+</footer>
+
+<!-- Submission confirmation -->
+<div class="overlay" id="submitModal">
+  <div class="modal">
+    <h2>Submit Examination?</h2>
+    <p id="submissionSummary"></p>
+    <p>Once submitted, you cannot return to the examination.</p>
+    <div class="modal-actions">
+      <button class="btn btn-light" id="cancelSubmit">Continue Exam</button>
+      <button class="btn btn-red" id="confirmSubmit">Confirm Submission</button>
+    </div>
+  </div>
+</div>
+
+<!-- Calculator -->
+<div class="overlay" id="calculatorModal">
+  <div class="modal">
+    <h2>Basic Calculator</h2>
+    <input class="calc-display" id="calcDisplay" readonly value="0">
+    <div class="calc-grid" id="calcButtons"></div>
+    <div class="modal-actions">
+      <button class="btn btn-light" id="closeCalculator">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Media warning -->
+<div class="overlay" id="mediaModal">
+  <div class="modal">
+    <h2>Camera / Microphone Warning</h2>
+    <p id="mediaMessage">
+      Your camera or microphone connection has been interrupted.
+    </p>
+    <p>Please restore the connection. Your examination timer will continue.</p>
+    <div class="modal-actions">
+      <button class="btn btn-green" id="retryMedia">Reconnect Devices</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================
+   CONFIGURATION
+========================================= */
+
+const API = {
+  verify: "/api/cbt/verify",
+  start: "/api/cbt/start",
+  questions: "/api/cbt/questions",
+  answers: "/api/cbt/answers",
+  answerState: "/api/cbt/answer-state",
+  submit: "/api/cbt/submit"
+};
+
+const LOOKUP_KEY = "cbt_lookup";
+
+let lookup = sessionStorage.getItem(LOOKUP_KEY);
+
+let examQuestions = {};
+let subjects = [];
+let currentSubjectIndex = 0;
+let currentQuestionIndex = 0;
+
+let answers = {};
+let deadlineAt = null;
+let timerInterval = null;
+let mediaStream = null;
+
+let saving = false;
+let saveQueue = [];
+let submitting = false;
+let examStarted = false;
+
+const $ = id => document.getElementById(id);
+
+function showLoading(message) {
+  $("loadingMessage").textContent = message;
+  $("loadingScreen").classList.remove("hidden");
+}
+
+function hideLoading() {
+  $("loadingScreen").classList.add("hidden");
+}
+
+async function apiPost(url, body) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    cache: "no-store",
+    body: JSON.stringify(body)
+  });
+
+  let data;
+
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("INVALID_SERVER_RESPONSE");
+  }
+
+  if (!response.ok || !data.ok) {
+    throw new Error(data.code || "REQUEST_FAILED");
+  }
+
+  return data;
+}
+
+/* =========================================
+   DEVICE CHECK
+========================================= */
+
+function setDeviceStatus(type, good) {
+  $(type + "Dot").className =
+    "dot " + (good ? "good" : "bad");
+
+  $(type + "Status").textContent =
+    good ? "Connected" : "Disconnected";
+}
+
+async function connectDevices() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error("MEDIA_NOT_SUPPORTED");
+  }
+
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => track.stop());
+    mediaStream = null;
+  }
+
+  mediaStream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      facingMode: "user"
+    },
+    audio: true
+  });
+
+  const videoTrack = mediaStream.getVideoTracks()[0];
+  const audioTrack = mediaStream.getAudioTracks()[0];
+
+  if (!videoTrack || !audioTrack ||
+      !videoTrack.enabled || !audioTrack.enabled) {
+    throw new Error("MEDIA_PERMISSION_INCOMPLETE");
+  }
+
+  setDeviceStatus("camera", true);
+  setDeviceStatus("mic", true);
+
+  mediaStream.getTracks().forEach(track => {
+    track.addEventListener("ended", handleMediaDisconnect);
+    track.addEventListener("mute", handleMediaDisconnect);
+    track.addEventListener("unmute", checkMediaTracks);
+  });
+
+  return true;
+}
+
+function checkMediaTracks() {
+  if (!mediaStream) return;
+
+  const video = mediaStream.getVideoTracks().some(
+    track => track.readyState === "live" && track.enabled
+  );
+
+  const audio = mediaStream.getAudioTracks().some(
+    track => track.readyState === "live" && track.enabled
+  );
+
+  setDeviceStatus("camera", video);
+  setDeviceStatus("mic", audio);
+
+  if (!video || !audio) {
+    handleMediaDisconnect();
+  }
+}
+
+function handleMediaDisconnect() {
+  if (!examStarted) return;
+
+  setDeviceStatus(
+    "camera",
+    mediaStream?.getVideoTracks().some(
+      track => track.readyState === "live"
+    ) || false
+  );
+
+  setDeviceStatus(
+    "mic",
+    mediaStream?.getAudioTracks().some(
+      track => track.readyState === "live"
+    ) || false
+  );
+
+  $("mediaMessage").textContent =
+    "Your camera or microphone connection has been interrupted. Reconnect your devices.";
+
+  $("mediaModal").style.display = "flex";
+}
+
+async function reconnectDevices() {
+  try {
+    await connectDevices();
+    $("mediaModal").style.display = "none";
+  } catch (error) {
+    alert("Unable to reconnect your camera and microphone. Please check your browser permissions.");
+  }
+}
+
+/* =========================================
+   EXAM INITIALIZATION
+========================================= */
+
+async function initializeExam() {
+  if (!lookup) {
+    throw new Error("CANDIDATE_SESSION_MISSING");
+  }
+
+  if (
+    sessionStorage.getItem("cbt_candidate_verified") !== "true" ||
+    sessionStorage.getItem("cbt_instructions_acknowledged") !== "true" ||
+    sessionStorage.getItem("cbt_device_check_passed") !== "true"
+  ) {
+    throw new Error("EXAM_REQUIREMENTS_NOT_COMPLETED");
+  }
+
+  // Recheck the candidate's registration and schedule.
+  showLoading("Verifying your examination eligibility...");
+
+  const verified = await apiPost(API.verify, {
+    whatsappNumber: lookup
+  });
+
+  if (
+    verified.code !== "ATTEMPT_IN_PROGRESS" &&
+    !verified.ok
+  ) {
+    throw new Error("CANDIDATE_VERIFICATION_FAILED");
+  }
+
+  // Reacquire media because the instructions page may have stopped its stream.
+  showLoading("Checking camera and microphone...");
+
+  await connectDevices();
+
+  // Start or resume the official attempt.
+  showLoading("Starting your examination...");
+
+  const started = await apiPost(API.start, {
+    whatsappNumber: lookup
+  });
+
+  if (
+    !started.deadlineAt ||
+    !started.attemptId
+  ) {
+    throw new Error("INVALID_START_RESPONSE");
+  }
+
+  deadlineAt = new Date(started.deadlineAt);
+
+  if (Number.isNaN(deadlineAt.getTime())) {
+    throw new Error("INVALID_EXAM_DEADLINE");
+  }
+
+  // Retrieve the fixed question set.
+  showLoading("Loading your examination questions...");
+
+  const questionData = await apiPost(API.questions, {
+    whatsappNumber: lookup
+  });
+
+  examQuestions = questionData.questions || {};
+  subjects = Object.keys(examQuestions);
+
+  if (subjects.length !== 4) {
+    throw new Error("INVALID_EXAM_SUBJECTS");
+  }
+
+  for (const subject of subjects) {
+    if (
+      !Array.isArray(examQuestions[subject]) ||
+      examQuestions[subject].length !== 40
+    ) {
+      throw new Error("INVALID_SUBJECT_QUESTION_COUNT");
+    }
+  }
+
+  // Restore previous answers if this is a resumed attempt.
+  showLoading("Restoring your saved answers...");
+
+  const state = await apiPost(API.answerState, {
+    whatsappNumber: lookup
+  });
+
+  if (state.deadlineAt) {
+    const restoredDeadline = new Date(state.deadlineAt);
+
+    if (
+      !Number.isNaN(restoredDeadline.getTime()) &&
+      restoredDeadline.getTime() !== deadlineAt.getTime()
+    ) {
+      throw new Error("EXAM_DEADLINE_MISMATCH");
+    }
+  }
+
+  answers = {};
+
+  for (const [questionId, answer] of Object.entries(
+    state.answers || {}
+  )) {
+    answers[questionId] = answer.selectedOption || null;
+  }
+
+  // Check if there is still time.
+  if (Date.now() >= deadlineAt.getTime()) {
+    throw new Error("EXAM_TIME_EXPIRED");
+  }
+
+  examStarted = true;
+
+  const candidate = questionData.candidate || {};
+
+  $("candidateName").textContent =
+    candidate.name || "Candidate";
+
+  $("candidateReg").textContent =
+    "Registration Number: " +
+    (candidate.registrationNumber || "");
+
+  $("examDeadline").textContent =
+    "Official deadline: " +
+    deadlineAt.toLocaleTimeString("en-NG", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+  renderSubjectTabs();
+  renderQuestion();
+  updateProgress();
+  startTimer();
+
+  hideLoading();
+}
+
+/* =========================================
+   SUBJECT AND QUESTION NAVIGATION
+========================================= */
+
+function getCurrentSubject() {
+  return subjects[currentSubjectIndex];
+}
+
+function getCurrentQuestions() {
+  return examQuestions[getCurrentSubject()] || [];
+}
+
+function getCurrentQuestion() {
+  return getCurrentQuestions()[currentQuestionIndex];
+}
+
+function renderSubjectTabs() {
+  const container = $("subjectTabs");
+  container.innerHTML = "";
+
+  subjects.forEach((subject, index) => {
+    const button = document.createElement("button");
+
+    button.className =
+      "subject-tab" +
+      (index === currentSubjectIndex ? " active" : "");
+
+    button.textContent = subject;
+
+    button.addEventListener("click", () => {
+      currentSubjectIndex = index;
+      currentQuestionIndex = 0;
+      renderSubjectTabs();
+      renderQuestion();
+    });
+
+    container.appendChild(button);
+  });
+}
+
+function renderQuestion() {
+  const subject = getCurrentSubject();
+  const questions = getCurrentQuestions();
+  const question = getCurrentQuestion();
+
+  if (!question) return;
+
+  $("subjectLabel").textContent = subject;
+
+  $("questionLabel").textContent =
+    `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+
+  $("questionText").textContent = question.question || "";
+
+  const optionsContainer = $("options");
+  optionsContainer.innerHTML = "";
+
+  const selected = answers[question.id] || null;
+
+  (question.options || []).forEach((option, index) => {
+    const letter = ["A", "B", "C", "D"][index];
+
+    const label = document.createElement("label");
+
+    label.className =
+      "option" + (selected === letter ? " selected" : "");
+
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "exam-option";
+    radio.value = letter;
+    radio.checked = selected === letter;
+
+    const text = document.createElement("span");
+    text.textContent = option;
+
+    radio.addEventListener("change", () => {
+      selectAnswer(question.id, letter);
+    });
+
+    label.appendChild(radio);
+    label.appendChild(text);
+    optionsContainer.appendChild(label);
+  });
+
+  $("previousBtn").disabled =
+    currentSubjectIndex === 0 && currentQuestionIndex === 0;
+
+  $("nextBtn").textContent =
+    currentSubjectIndex === 3 && currentQuestionIndex === 39
+      ? "Last Question"
+      : "Next";
+
+  renderQuestionGrid();
+  updateProgress();
+}
+
+function renderQuestionGrid() {
+  const container = $("questionGrid");
+  container.innerHTML = "";
+
+  const questions = getCurrentQuestions();
+
+  questions.forEach((question, index) => {
+    const button = document.createElement("button");
+
+    const answered = Boolean(answers[question.id]);
+
+    button.className =
+      "q-number" +
+      (answered ? " answered" : "") +
+      (index === currentQuestionIndex ? " current" : "");
+
+    button.textContent = index + 1;
+
+    button.addEventListener("click", () => {
+      currentQuestionIndex = index;
+      renderQuestion();
+    });
+
+    container.appendChild(button);
+  });
+}
+
+function moveNext() {
+  const questions = getCurrentQuestions();
+
+  if (currentQuestionIndex < questions.length - 1) {
+    currentQuestionIndex++;
+  } else if (currentSubjectIndex < subjects.length - 1) {
+    currentSubjectIndex++;
+    currentQuestionIndex = 0;
+    renderSubjectTabs();
+  }
+
+  renderQuestion();
+}
+
+function movePrevious() {
+  if (currentQuestionIndex > 0) {
+    currentQuestionIndex--;
+  } else if (currentSubjectIndex > 0) {
+    currentSubjectIndex--;
+    currentQuestionIndex = 39;
+    renderSubjectTabs();
+  }
+
+  renderQuestion();
+}
+
+$("nextBtn").addEventListener("click", moveNext);
+$("previousBtn").addEventListener("click", movePrevious);
+
+/* =========================================
+   ANSWER AUTOSAVE
+========================================= */
+
+function setSaveStatus(message, good = true) {
+  $("saveStatus").textContent = message;
+  $("saveLabel").textContent = good ? "Saved" : "Saving / retry needed";
+  $("saveDot").className = "dot " + (good ? "good" : "bad");
+}
+
+function selectAnswer(questionId, option) {
+  if (submitting || Date.now() >= deadlineAt.getTime()) {
+    return;
+  }
+
+  answers[questionId] = option;
+
+  renderQuestion();
+  updateProgress();
+
+  saveQueue.push({
+    questionId,
+    selectedOption: option
+  });
+
+  processSaveQueue();
+}
+
+async function processSaveQueue() {
+  if (saving || saveQueue.length === 0 || submitting) {
+    return;
+  }
+
+  saving = true;
+
+  while (saveQueue.length > 0 && !submitting) {
+    const batch = saveQueue.splice(0, 20);
+
+    try {
+      setSaveStatus("Saving your answers...", false);
+
+      await apiPost(API.answers, {
+        whatsappNumber: lookup,
+        answers: batch
+      });
+
+      setSaveStatus("All changes saved", true);
+
+    } catch (error) {
+      // Keep failed changes queued for another attempt.
+      saveQueue.unshift(...batch);
+
+      setSaveStatus("Answer saving failed. Retrying shortly.", false);
+
+      await new Promise(resolve => setTimeout(resolve, 2500));
+
+      if (Date.now() >= deadlineAt.getTime()) {
+        break;
+      }
+    }
+  }
+
+  saving = false;
+}
+
+function updateProgress() {
+  let total = 0;
+  let answered = 0;
+
+  for (const subject of subjects) {
+    for (const question of examQuestions[subject] || []) {
+      total++;
+
+      if (answers[question.id]) {
+        answered++;
+      }
+    }
+  }
+
+  $("examProgress").textContent =
+    `${answered} / ${total} answered`;
+
+  $("progressFill").style.width =
+    total ? `${(answered / total) * 100}%` : "0%";
+}
+
+/* =========================================
+   OFFICIAL SERVER DEADLINE TIMER
+========================================= */
+
+function formatTime(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+
+  return (
+    String(minutes).padStart(2, "0") +
+    ":" +
+    String(remaining).padStart(2, "0")
+  );
+}
+
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+
+  function updateTimer() {
+    const remaining = Math.max(
+      0,
+      Math.floor((deadlineAt.getTime() - Date.now()) / 1000)
+    );
+
+    $("timer").textContent = formatTime(remaining);
+
+    $("timer").classList.toggle(
+      "warning",
+      remaining <= 300
+    );
+
+    if (remaining <= 0) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      automaticallySubmit();
+    }
+  }
+
+  updateTimer();
+  timerInterval = setInterval(updateTimer, 1000);
+}
+
+/* =========================================
+   SUBMISSION
+========================================= */
+
+function countAnswers() {
+  return Object.values(answers).filter(Boolean).length;
+}
+
+$("submitBtn").addEventListener("click", () => {
+  const total = subjects.reduce(
+    (sum, subject) =>
+      sum + examQuestions[subject].length,
+    0
+  );
+
+  const answered = countAnswers();
+
+  $("submissionSummary").textContent =
+    `You have answered ${answered} out of ${total} questions. ` +
+    `${total - answered} questions remain unanswered.`;
+
+  $("submitModal").style.display = "flex";
+});
+
+$("cancelSubmit").addEventListener("click", () => {
+  $("submitModal").style.display = "none";
+});
+
+$("confirmSubmit").addEventListener("click", () => {
+  submitExam();
+});
+
+async function automaticallySubmit() {
+  if (submitting) return;
+
+  $("submitModal").style.display = "none";
+
+  await submitExam(true);
+}
+
+async function submitExam(automatic = false) {
+  if (submitting) return;
+
+  submitting = true;
+
+  $("submitBtn").disabled = true;
+  $("confirmSubmit").disabled = true;
+
+  showLoading(
+    automatic
+      ? "Your examination time has ended. Processing..."
+      : "Saving and submitting your examination..."
+  );
+
+  try {
+    // Flush any pending answers before final submission.
+    while (saving) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    if (saveQueue.length > 0) {
+      await processSaveQueue();
+    }
+
+    if (saveQueue.length > 0) {
+      throw new Error("ANSWERS_NOT_FULLY_SAVED");
+    }
+
+    const result = await apiPost(API.submit, {
+      whatsappNumber: lookup
+    });
+
+    if (
+      result.code !== "EXAM_SUBMITTED" &&
+      result.code !== "ATTEMPT_ALREADY_SUBMITTED"
+    ) {
+      throw new Error("SUBMISSION_NOT_CONFIRMED");
+    }
+
+    if (timerInterval) clearInterval(timerInterval);
+
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+    }
+
+    sessionStorage.removeItem("cbt_instructions_acknowledged");
+    sessionStorage.removeItem("cbt_device_check_passed");
+
+    showResult(result);
+
+  } catch (error) {
+    console.error("Submission error:", error);
+
+    $("loadingScreen").classList.add("hidden");
+
+    if (error.message === "EXAM_TIME_EXPIRED") {
+      showExpiredScreen();
+      return;
+    }
+
+    submitting = false;
+    $("submitBtn").disabled = false;
+    $("confirmSubmit").disabled = false;
+
+    alert(
+      "Your submission could not be confirmed. " +
+      "Please remain on this page and try again. " +
+      "Your examination deadline has not been extended."
+    );
+  }
+}
+
+function showResult(result) {
+  const scores = result.results || {};
+
+  document.body.innerHTML = `
+    <div style="
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background:#f1f5f9;
+      font-family:Arial,sans-serif;
+    ">
+      <div style="
+        background:white;
+        width:min(600px,100%);
+        padding:28px;
+        border-radius:12px;
+        text-align:center;
+        border:1px solid #d1d5db;
+      ">
+        <h1 style="color:#15803d">Examination Submitted</h1>
+        <p>Your examination has been successfully submitted.</p>
+        <h2>${Number(scores.totalScore || 0)} / ${Number(scores.totalQuestions || 0)}</h2>
+        <h3>${Number(scores.percentage || 0)}%</h3>
+        <p style="color:#64748b">
+          Your examination record has been saved.
+        </p>
+        <hr>
+        <div style="text-align:left">
+          <h3>Subject Summary</h3>
+          ${Object.entries(scores.subjectScores || {}).map(
+            ([subject, score]) => `
+              <p>
+                <strong>${escapeHTML(subject)}</strong><br>
+                ${score.correct} / ${score.totalQuestions}
+                (${score.percentage}%)
+              </p>
+            `
+          ).join("")}
+        </div>
+        <p style="font-size:12px;color:#64748b">
+          Flexi Educational Consult
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+function showExpiredScreen() {
+  document.body.innerHTML = `
+    <div style="
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      font-family:Arial,sans-serif;
+      background:#f1f5f9;
+    ">
+      <div style="
+        background:white;
+        padding:28px;
+        border-radius:12px;
+        text-align:center;
+        max-width:450px;
+      ">
+        <h2 style="color:#dc2626">Examination Time Expired</h2>
+        <p>The official examination deadline has passed.</p>
+        <p>Your attempt is now locked. Please contact the examination administrator.</p>
+      </div>
+    </div>
+  `;
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
+  })[char]);
+}
+
+/* =========================================
+   CALCULATOR
+========================================= */
+
+const calculatorKeys = [
+  "7","8","9","÷",
+  "4","5","6","×",
+  "1","2","3","−",
+  "0",".","C","+",
+  "(",")","⌫","="
+];
+
+let calculatorValue = "";
+
+function renderCalculator() {
+  const container = $("calcButtons");
+  container.innerHTML = "";
+
+  calculatorKeys.forEach(key => {
+    const button = document.createElement("button");
+    button.textContent = key;
+
+    button.addEventListener("click", () => {
+      calculateInput(key);
+    });
+
+    container.appendChild(button);
+  });
+}
+
+function calculateInput(key) {
+  if (key === "C") {
+    calculatorValue = "";
+    $("calcDisplay").value = "0";
+    return;
+  }
+
+  if (key === "⌫") {
+    calculatorValue = calculatorValue.slice(0, -1);
+    $("calcDisplay").value = calculatorValue || "0";
+    return;
+  }
+
+  if (key === "=") {
+    try {
+      if (!/^[0-9+\-*/().\s]+$/.test(calculatorValue)) {
+        throw new Error("Invalid");
+      }
+
+      const result = Function(
+        '"use strict"; return (' + calculatorValue + ')'
+      )();
+
+      if (!Number.isFinite(result)) {
+        throw new Error("Invalid");
+      }
+
+      calculatorValue = String(result);
+      $("calcDisplay").value = calculatorValue;
+
+    } catch {
+      $("calcDisplay").value = "Error";
+      calculatorValue = "";
+    }
+
+    return;
+  }
+
+  const symbols = {
+    "÷":"/",
+    "×":"*",
+    "−":"-"
+  };
+
+  calculatorValue += symbols[key] || key;
+  $("calcDisplay").value = calculatorValue;
+}
+
+renderCalculator();
+
+$("calculatorBtn").addEventListener("click", () => {
+  $("calculatorModal").style.display = "flex";
+});
+
+$("closeCalculator").addEventListener("click", () => {
+  $("calculatorModal").style.display = "none";
+});
+
+/* =========================================
+   FULLSCREEN
+========================================= */
+
+$("fullscreenBtn").addEventListener("click", async () => {
+  try {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+    } else {
+      await document.exitFullscreen();
+    }
+  } catch {
+    alert("Fullscreen is not available in this browser.");
+  }
+});
+
+/* =========================================
+   BROWSER MONITORING / DETERRENCE
+========================================= */
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && examStarted) {
+    console.warn("Examination page became hidden.");
+  }
+});
+
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement && examStarted) {
+    console.warn("Fullscreen mode exited.");
+  }
+});
+
+document.addEventListener("contextmenu", event => {
+  event.preventDefault();
+});
+
+document.addEventListener("copy", event => {
+  event.preventDefault();
+});
+
+document.addEventListener("cut", event => {
+  event.preventDefault();
+});
+
+document.addEventListener("paste", event => {
+  event.preventDefault();
+});
+
+document.addEventListener("keydown", event => {
+  const key = event.key.toLowerCase();
+
+  if (
+    event.key === "F12" ||
+    (event.ctrlKey && event.shiftKey &&
+      ["i","j","c"].includes(key)) ||
+    (event.ctrlKey && ["u","s"].includes(key))
+  ) {
+    event.preventDefault();
+  }
+});
+
+$("retryMedia").addEventListener("click", reconnectDevices);
+
+/* =========================================
+   START
+========================================= */
+
+window.addEventListener("pagehide", () => {
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => track.stop());
+  }
+});
+
+initializeExam().catch(error => {
+  console.error("EXAM INITIALIZATION ERROR:", error);
+
+  showLoading(
+    "Unable to start your examination: " +
+    error.message +
+    ". Please contact the examination administrator."
+  );
+});
+</script>
+
+</body>
+</html>
