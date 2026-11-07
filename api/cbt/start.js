@@ -9,8 +9,7 @@ const {
 
 const EXAM_DATE = "2026-11-28";
 const DEFAULT_EXAM_ID = "jamb-2026-11-28";
-const DURATION_SECONDS = 50 * 60;
-const DURATION_MILLIS = DURATION_SECONDS * 1000;
+const DURATION_MILLIS = 50 * 60 * 1000;
 
 function normalizePhone(value) {
   return String(value || "").replace(/\D/g, "");
@@ -37,6 +36,7 @@ function getScheduleStartMillis(schedule) {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time24)) return null;
 
   const [hour, minute] = time24.split(":").map(Number);
+  // Firestore migration stores Lagos local time; convert WAT (UTC+1) to UTC.
   return Date.UTC(2026, 10, 28, hour - 1, minute, 0);
 }
 
@@ -149,45 +149,67 @@ module.exports = async function handler(req, res) {
     let attemptResult;
 
     if (existingToken) {
-      // A page refresh may call start again. Validate and reuse its
-      // existing session rather than creating a competing session.
+      // A refresh must reuse the exact current session and original deadline.
       const session = await requireCandidateSession(req);
       if (session.candidateId !== candidateId || session.attemptId !== attemptId) {
         return send(res, 403, { ok: false, code: "SESSION_IDENTITY_MISMATCH" });
       }
+
       const attemptSnap = await attemptRef.get();
       if (!attemptSnap.exists) return send(res, 404, { ok: false, code: "ATTEMPT_NOT_FOUND" });
-      const attempt = attemptSnap.data() || {};
-      if (attempt.status !== "in_progress") {
+      const old = attemptSnap.data() || {};
+
+      if (old.status === "submitted") {
+        return send(res, 409, { ok: false, code: "ATTEMPT_ALREADY_USED" });
+      }
+      if (old.status !== "in_progress") {
         return send(res, 409, { ok: false, code: "ATTEMPT_NOT_ACTIVE" });
       }
+
+      const savedDeadline = toMillis(old.deadlineAt);
+      const startedAt = toMillis(old.startedAt);
+      if (
+        !Number.isFinite(savedDeadline) ||
+        savedDeadline !== deadline ||
+        !Number.isFinite(startedAt) ||
+        startedAt < scheduledAt
+      ) {
+        return send(res, 409, { ok: false, code: "ATTEMPT_REQUIRES_ADMIN_REVIEW" });
+      }
+
       attemptResult = {
         resumed: true,
-        startedAt: toMillis(attempt.startedAt),
-        deadlineAt: toMillis(attempt.deadlineAt),
+        startedAt,
+        deadlineAt: savedDeadline,
         token: existingToken
       };
     } else {
+      let transactionOutcome = null;
+
       await db.runTransaction(async tx => {
         const snap = await tx.get(attemptRef);
 
         if (snap.exists) {
           const old = snap.data() || {};
+
           if (
             old.attemptId !== attemptId ||
             old.examId !== examId ||
             old.candidateId !== candidateId ||
             old.registrationNumber !== registrationNumber
           ) {
-            throw Object.assign(new Error("ATTEMPT_REQUIRES_ADMIN_REVIEW"), { status: 409 });
+            transactionOutcome = { error: "ATTEMPT_REQUIRES_ADMIN_REVIEW", status: 409 };
+            return;
           }
 
           if (old.status === "submitted" || old.status === "expired") {
-            throw Object.assign(new Error("ATTEMPT_ALREADY_USED"), { status: 409 });
+            transactionOutcome = { error: "ATTEMPT_ALREADY_USED", status: 409 };
+            return;
           }
 
           if (old.status !== "in_progress") {
-            throw Object.assign(new Error("ATTEMPT_NOT_ACTIVE"), { status: 409 });
+            transactionOutcome = { error: "ATTEMPT_NOT_ACTIVE", status: 409 };
+            return;
           }
 
           const startedAt = toMillis(old.startedAt);
@@ -201,32 +223,38 @@ module.exports = async function handler(req, res) {
             startedAt < scheduledAt ||
             startedAt > now
           ) {
-            throw Object.assign(new Error("ATTEMPT_REQUIRES_ADMIN_REVIEW"), { status: 409 });
+            transactionOutcome = { error: "ATTEMPT_REQUIRES_ADMIN_REVIEW", status: 409 };
+            return;
           }
 
+          // Do not mark an attempt expired here. The submission endpoint must
+          // finalize and score it; throwing inside a transaction would roll back.
           if (now >= savedDeadline) {
-            tx.update(attemptRef, {
-              status: "expired",
-              expiredAt: firebase.firestore.FieldValue.serverTimestamp(),
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              expiryReason: "BATCH_DEADLINE_REACHED"
-            });
-            throw Object.assign(new Error("ATTEMPT_ALREADY_USED"), { status: 409 });
+            transactionOutcome = { error: "EXAM_TIME_EXPIRED", status: 409 };
+            return;
           }
 
-          attemptResult = { resumed: true, startedAt, deadlineAt: savedDeadline };
+          transactionOutcome = {
+            resumed: true,
+            startedAt,
+            deadlineAt: savedDeadline
+          };
           return;
         }
 
         const entryEndsAt = scheduledAt + getEntryWindowSeconds() * 1000;
+
         if (now < scheduledAt) {
-          throw Object.assign(new Error("TOO_EARLY"), { status: 403 });
+          transactionOutcome = { error: "TOO_EARLY", status: 403 };
+          return;
         }
         if (now > entryEndsAt) {
-          throw Object.assign(new Error("ENTRY_WINDOW_CLOSED"), { status: 403 });
+          transactionOutcome = { error: "ENTRY_WINDOW_CLOSED", status: 403 };
+          return;
         }
         if (now >= deadline) {
-          throw Object.assign(new Error("BATCH_DEADLINE_REACHED"), { status: 403 });
+          transactionOutcome = { error: "BATCH_DEADLINE_REACHED", status: 403 };
+          return;
         }
 
         const Timestamp = firebase.firestore.Timestamp;
@@ -244,7 +272,7 @@ module.exports = async function handler(req, res) {
           scheduledAt: Timestamp.fromMillis(scheduledAt),
           startedAt: started,
           deadlineAt: deadlineTimestamp,
-          durationSeconds: DURATION_SECONDS,
+          durationSeconds: 50 * 60,
           submittedAt: null,
           expiredAt: null,
           score: null,
@@ -253,13 +281,23 @@ module.exports = async function handler(req, res) {
           updatedAt: started
         });
 
-        attemptResult = {
+        transactionOutcome = {
           resumed: false,
           startedAt: now,
           deadlineAt: deadline
         };
       });
 
+      if (transactionOutcome?.error) {
+        return send(res, transactionOutcome.status, {
+          ok: false,
+          code: transactionOutcome.error
+        });
+      }
+
+      attemptResult = transactionOutcome;
+
+      // A new session is created only after the attempt transaction commits.
       const session = await createCandidateSession({
         candidateId,
         attemptId,
@@ -286,7 +324,7 @@ module.exports = async function handler(req, res) {
         status: "in_progress",
         startedAt: new Date(attemptResult.startedAt).toISOString(),
         deadlineAt: new Date(attemptResult.deadlineAt).toISOString(),
-        durationSeconds: DURATION_SECONDS
+        durationSeconds: 50 * 60
       },
       candidate: {
         fullName,
@@ -305,6 +343,7 @@ module.exports = async function handler(req, res) {
     if (error instanceof CbtAuthError) {
       return send(res, error.status || 401, { ok: false, code: error.code });
     }
+
     const code = String(error.message || "");
     const known = {
       TOO_EARLY: 403,
@@ -315,6 +354,7 @@ module.exports = async function handler(req, res) {
       ATTEMPT_REQUIRES_ADMIN_REVIEW: 409,
       SESSION_ALREADY_ACTIVE: 409
     };
+
     if (known[code]) return send(res, known[code], { ok: false, code });
     console.error("CBT START ERROR:", error);
     return send(res, 500, { ok: false, code: "ATTEMPT_START_FAILED" });

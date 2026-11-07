@@ -74,13 +74,14 @@ module.exports = async function handler(req, res) {
     const snapshot = snapshotDoc.data() || {};
     if (
       snapshot.candidateId !== session.candidateId ||
-      snapshot.examId !== EXAM_ID
+      snapshot.examId !== EXAM_ID ||
+      !Array.isArray(snapshot.subjects)
     ) {
       return send(res, 403, { ok: false, code: "QUESTION_SNAPSHOT_IDENTITY_MISMATCH" });
     }
 
     const questionMap = new Map();
-    for (const subject of snapshot.subjects || []) {
+    for (const subject of snapshot.subjects) {
       for (const q of snapshot.questions?.[subject] || []) {
         if (!q.id) return send(res, 409, { ok: false, code: "INVALID_QUESTION_SNAPSHOT" });
         questionMap.set(q.id, subject);
@@ -103,29 +104,30 @@ module.exports = async function handler(req, res) {
 
     const result = await db.runTransaction(async tx => {
       const attemptSnap = await tx.get(attemptRef);
-      if (!attemptSnap.exists) throw Object.assign(new Error("ATTEMPT_NOT_FOUND"), { status: 404 });
+      if (!attemptSnap.exists) {
+        throw Object.assign(new Error("ATTEMPT_NOT_FOUND"), { status: 404 });
+      }
 
       const attempt = attemptSnap.data() || {};
       if (
         attempt.candidateId !== session.candidateId ||
         attempt.examId !== EXAM_ID ||
         attempt.attemptId !== session.attemptId
-      ) throw Object.assign(new Error("ATTEMPT_IDENTITY_MISMATCH"), { status: 403 });
+      ) {
+        throw Object.assign(new Error("ATTEMPT_IDENTITY_MISMATCH"), { status: 403 });
+      }
 
       if (attempt.status !== "in_progress") {
         throw Object.assign(new Error("ATTEMPT_NOT_ACTIVE"), { status: 409 });
       }
 
       const deadline = toMillis(attempt.deadlineAt);
-      if (!deadline) throw Object.assign(new Error("INVALID_ATTEMPT_DEADLINE"), { status: 409 });
+      if (!deadline) {
+        throw Object.assign(new Error("INVALID_ATTEMPT_DEADLINE"), { status: 409 });
+      }
+
       if (Date.now() >= deadline) {
-        // Return a value so the expiry update commits; throwing would abort it.
-        tx.update(attemptRef, {
-          status: "expired",
-          expiredAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          expiryReason: "BATCH_DEADLINE_REACHED"
-        });
+        // Leave finalization to submit.js; never set "expired" without scoring.
         return { expired: true, saved: [] };
       }
 
@@ -163,7 +165,9 @@ module.exports = async function handler(req, res) {
       return { expired: false, saved };
     });
 
-    if (result.expired) return send(res, 409, { ok: false, code: "EXAM_TIME_EXPIRED" });
+    if (result.expired) {
+      return send(res, 409, { ok: false, code: "EXAM_TIME_EXPIRED" });
+    }
 
     return send(res, 200, {
       ok: true,
@@ -175,6 +179,7 @@ module.exports = async function handler(req, res) {
     if (error instanceof CbtAuthError) {
       return send(res, error.status || 401, { ok: false, code: error.code });
     }
+
     const code = String(error.message || "");
     const known = {
       ATTEMPT_NOT_FOUND: 404,
@@ -182,6 +187,7 @@ module.exports = async function handler(req, res) {
       ATTEMPT_NOT_ACTIVE: 409,
       INVALID_ATTEMPT_DEADLINE: 409
     };
+
     if (known[code]) return send(res, known[code], { ok: false, code });
     console.error("CBT ANSWERS ERROR:", error);
     return send(res, 500, { ok: false, code: "ANSWERS_SAVE_FAILED" });

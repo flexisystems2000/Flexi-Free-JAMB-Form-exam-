@@ -1,6 +1,6 @@
 "use strict";
 
-const { getFirestore, admin } = require("../../lib/firebase-admin");
+const { getFirestore } = require("../../lib/firebase-admin");
 const {
   requireCandidateSession,
   CbtAuthError
@@ -43,8 +43,12 @@ module.exports = async function handler(req, res) {
       snapshotRef.get()
     ]);
 
-    if (!attemptSnap.exists) return send(res, 404, { ok: false, code: "ATTEMPT_NOT_FOUND" });
-    if (!snapshotDoc.exists) return send(res, 409, { ok: false, code: "QUESTION_SNAPSHOT_NOT_FOUND" });
+    if (!attemptSnap.exists) {
+      return send(res, 404, { ok: false, code: "ATTEMPT_NOT_FOUND" });
+    }
+    if (!snapshotDoc.exists) {
+      return send(res, 409, { ok: false, code: "QUESTION_SNAPSHOT_NOT_FOUND" });
+    }
 
     const attempt = attemptSnap.data() || {};
     const snapshot = snapshotDoc.data() || {};
@@ -52,6 +56,7 @@ module.exports = async function handler(req, res) {
     if (
       attempt.candidateId !== session.candidateId ||
       attempt.examId !== EXAM_ID ||
+      attempt.attemptId !== session.attemptId ||
       snapshot.candidateId !== session.candidateId ||
       snapshot.examId !== EXAM_ID
     ) {
@@ -69,16 +74,18 @@ module.exports = async function handler(req, res) {
     }
 
     const deadline = toMillis(attempt.deadlineAt);
-    if (!deadline) return send(res, 409, { ok: false, code: "INVALID_ATTEMPT_DEADLINE" });
+    if (!deadline) {
+      return send(res, 409, { ok: false, code: "INVALID_ATTEMPT_DEADLINE" });
+    }
 
+    // Do not mark an attempt expired here. The submission endpoint performs
+    // atomic scoring and finalization, including when called at the deadline.
     if (Date.now() >= deadline) {
-      await attemptRef.update({
-        status: "expired",
-        expiredAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        expiryReason: "BATCH_DEADLINE_REACHED"
+      return send(res, 409, {
+        ok: false,
+        code: "EXAM_TIME_EXPIRED",
+        deadlineAt: new Date(deadline).toISOString()
       });
-      return send(res, 409, { ok: false, code: "ATTEMPT_EXPIRED" });
     }
 
     const subjects = Array.isArray(snapshot.subjects) ? snapshot.subjects : [];
@@ -89,8 +96,11 @@ module.exports = async function handler(req, res) {
       if (!Array.isArray(questions)) {
         return send(res, 409, { ok: false, code: "INVALID_QUESTION_SNAPSHOT" });
       }
+
       for (const q of questions) {
-        if (!q.id) return send(res, 409, { ok: false, code: "INVALID_QUESTION_SNAPSHOT" });
+        if (!q.id) {
+          return send(res, 409, { ok: false, code: "INVALID_QUESTION_SNAPSHOT" });
+        }
         questionIds.push(q.id);
       }
     }
@@ -102,23 +112,23 @@ module.exports = async function handler(req, res) {
     for (const doc of answerSnap.docs) {
       if (!validIds.has(doc.id)) continue;
       const data = doc.data() || {};
+
       if (
         data.attemptId !== session.attemptId ||
         data.candidateId !== session.candidateId
       ) continue;
 
+      const savedAt = toMillis(data.savedAt);
       savedAnswers[doc.id] = {
         questionId: doc.id,
         selectedOption: data.selectedOption ?? null,
         subject: data.subject || null,
-        savedAt: toMillis(data.savedAt)
-          ? new Date(toMillis(data.savedAt)).toISOString()
-          : null
+        savedAt: savedAt !== null ? new Date(savedAt).toISOString() : null
       };
     }
 
     const answeredCount = Object.values(savedAnswers)
-      .filter(a => a.selectedOption !== null).length;
+      .filter(answer => answer.selectedOption !== null).length;
 
     return send(res, 200, {
       ok: true,
@@ -136,6 +146,7 @@ module.exports = async function handler(req, res) {
     if (error instanceof CbtAuthError) {
       return send(res, error.status || 401, { ok: false, code: error.code });
     }
+
     console.error("CBT ANSWER STATE ERROR:", error);
     return send(res, 500, { ok: false, code: "ANSWER_STATE_LOAD_FAILED" });
   }
