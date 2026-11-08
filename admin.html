@@ -1,0 +1,902 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#14532d">
+<title>Flexi CBT | Admin Dashboard</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --green:#166534;
+  --dark:#14532d;
+  --lime:#84cc16;
+  --bg:#f3f6f4;
+  --white:#fff;
+  --text:#17251b;
+  --muted:#64748b;
+  --border:#e2e8e4;
+  --red:#dc2626;
+  --orange:#ea580c;
+  --blue:#2563eb;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text)}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+
+#loginScreen{
+  min-height:100vh;display:flex;align-items:center;
+  justify-content:center;padding:20px
+}
+.login-card{
+  width:100%;max-width:420px;background:white;
+  padding:32px;border-radius:17px;
+  box-shadow:0 8px 30px #0000000b
+}
+.brand{font-size:25px;font-weight:800;color:var(--green)}
+.muted{font-size:12px;color:var(--muted);line-height:1.6}
+.login-card h2{margin:25px 0 8px;font-size:22px}
+.field{margin-top:18px}
+.field label{display:block;font-size:12px;font-weight:700;margin-bottom:8px}
+.field input{
+  width:100%;padding:13px;border:1px solid var(--border);
+  border-radius:8px;outline:none
+}
+.field input:focus{border-color:var(--green)}
+.btn{
+  border:0;padding:11px 15px;border-radius:8px;
+  font-weight:700;font-size:12px
+}
+.btn-primary{background:var(--green);color:white}
+.btn-primary:hover{background:var(--dark)}
+.btn-light{background:white;border:1px solid var(--border);color:var(--text)}
+.btn-danger{background:#fee2e2;color:#991b1b}
+.btn:disabled{opacity:.6;cursor:wait}
+.full{width:100%;margin-top:22px}
+.error{color:var(--red);font-size:12px;margin-top:12px}
+
+header{
+  background:var(--dark);color:white;padding:16px 4%;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:15px;flex-wrap:wrap
+}
+.header-brand{font-weight:800;font-size:20px}
+.header-brand span{color:var(--lime)}
+.header-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.admin-email{font-size:11px;color:#d1fae5}
+.logout{background:#ffffff18;border:1px solid #ffffff35;color:white}
+
+.layout{display:flex;min-height:calc(100vh - 65px)}
+.sidebar{
+  width:230px;background:white;border-right:1px solid var(--border);
+  padding:20px 12px;flex-shrink:0
+}
+.sidebar-label{
+  font-size:10px;color:var(--muted);font-weight:800;
+  padding:12px 12px 8px;text-transform:uppercase
+}
+.nav-btn{
+  width:100%;display:flex;align-items:center;gap:10px;
+  text-align:left;border:0;background:transparent;
+  padding:12px;border-radius:8px;color:#475569;
+  font-size:12px;font-weight:600;margin-bottom:4px
+}
+.nav-btn:hover,.nav-btn.active{background:#dcfce7;color:var(--green)}
+.content{flex:1;min-width:0;padding:25px 3%}
+.page-heading{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;margin-bottom:22px
+}
+.page-heading h1{font-size:24px;margin-bottom:5px}
+.page-heading p{font-size:12px;color:var(--muted)}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+
+.stats{
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:13px;margin-bottom:20px
+}
+.stat{
+  background:white;border:1px solid var(--border);
+  border-radius:12px;padding:18px
+}
+.stat-label{font-size:11px;color:var(--muted);font-weight:600}
+.stat-value{font-size:26px;font-weight:800;margin-top:10px}
+.green{color:var(--green)}
+.red{color:var(--red)}
+.orange{color:var(--orange)}
+
+.panel{
+  background:white;border:1px solid var(--border);
+  border-radius:12px;padding:19px;margin-bottom:20px
+}
+.panel-heading{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;margin-bottom:17px
+}
+.panel-heading h2{font-size:16px}
+.panel-heading p{font-size:11px;color:var(--muted);margin-top:5px}
+
+.quick-grid{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:13px;margin-bottom:20px
+}
+.quick-card{
+  display:block;text-decoration:none;color:var(--text);
+  background:white;border:1px solid var(--border);
+  border-radius:12px;padding:18px;transition:.2s
+}
+.quick-card:hover{border-color:var(--green);transform:translateY(-2px)}
+.quick-icon{font-size:23px;margin-bottom:12px}
+.quick-card h3{font-size:13px;margin-bottom:6px}
+.quick-card p{font-size:11px;color:var(--muted);line-height:1.5}
+
+.table-tools{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px}
+.search{
+  flex:1;min-width:180px;padding:11px 12px;
+  border:1px solid var(--border);border-radius:8px;outline:none
+}
+.search:focus{border-color:var(--green)}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:720px}
+th{
+  text-align:left;background:#f8faf9;color:var(--muted);
+  padding:12px;font-size:10px;white-space:nowrap
+}
+td{
+  padding:13px 12px;border-bottom:1px solid var(--border);
+  font-size:11px;white-space:nowrap
+}
+tbody tr:hover{background:#f8faf9}
+.name{font-weight:700}
+.sub{font-size:10px;color:var(--muted);margin-top:4px}
+.badge{
+  display:inline-block;padding:5px 8px;border-radius:20px;
+  font-size:10px;font-weight:700;background:#e2e8f0;color:#475569
+}
+.status-submitted{background:#dcfce7;color:#166534}
+.status-in_progress{background:#ffedd5;color:#9a3412}
+.status-not_started{background:#e0f2fe;color:#075985}
+.status-expired{background:#fee2e2;color:#991b1b}
+.status-open{background:#fee2e2;color:#991b1b}
+.status-resolved{background:#dcfce7;color:#166534}
+
+.alert-item{
+  border:1px solid var(--border);border-radius:9px;
+  padding:13px;margin-bottom:10px
+}
+.alert-top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.alert-title{font-size:12px;font-weight:800}
+.alert-message{font-size:11px;color:var(--muted);margin-top:7px;line-height:1.5}
+.alert-meta{font-size:10px;color:var(--muted);margin-top:8px}
+.alert-actions{margin-top:10px}
+
+.empty{padding:25px;text-align:center;color:var(--muted);font-size:12px}
+.loading{text-align:center;padding:35px;color:var(--muted);font-size:12px}
+.notice{
+  background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;
+  padding:12px;border-radius:9px;font-size:11px;
+  line-height:1.6;margin-bottom:18px
+}
+.modal{
+  position:fixed;inset:0;background:#0009;z-index:30;
+  display:flex;align-items:center;justify-content:center;padding:15px
+}
+.modal-card{
+  width:100%;max-width:650px;max-height:90vh;overflow:auto;
+  background:white;border-radius:14px;padding:22px
+}
+.modal-head{
+  display:flex;justify-content:space-between;
+  align-items:center;margin-bottom:18px
+}
+.close{
+  border:0;background:#f1f5f9;width:33px;height:33px;
+  border-radius:7px;font-size:20px
+}
+.detail-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;background:#f8faf9;padding:15px;border-radius:9px
+}
+.detail-label{font-size:10px;color:var(--muted);margin-bottom:5px}
+.detail-value{font-size:12px;font-weight:700;overflow-wrap:anywhere}
+.subject-tag{
+  display:inline-block;background:#dcfce7;color:#166534;
+  border-radius:20px;padding:6px 9px;margin:4px;font-size:10px
+}
+
+@media(max-width:1050px){
+  .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:750px){
+  .layout{display:block}
+  .sidebar{
+    width:100%;display:flex;overflow-x:auto;padding:8px;
+    border-right:0;border-bottom:1px solid var(--border)
+  }
+  .sidebar-label{display:none}
+  .nav-btn{width:auto;white-space:nowrap;margin:0 3px}
+  .content{padding:20px 4%}
+  .quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:480px){
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .stat{padding:13px}
+  .stat-value{font-size:22px}
+  .quick-grid{grid-template-columns:1fr}
+  .page-heading h1{font-size:21px}
+}
+</style>
+</head>
+
+<body>
+
+<section id="loginScreen">
+  <div class="login-card">
+    <div class="brand">FLEXI CBT</div>
+    <p class="muted">Examination Administration Portal</p>
+
+    <h2>Administrator Login</h2>
+    <p class="muted">Sign in with your authorized Firebase administrator account.</p>
+
+    <form id="loginForm">
+      <div class="field">
+        <label>Email Address</label>
+        <input id="email" type="email" autocomplete="username" required>
+      </div>
+
+      <div class="field">
+        <label>Password</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+      </div>
+
+      <button class="btn btn-primary full" id="loginButton">Sign In</button>
+      <p id="loginError" class="error"></p>
+    </form>
+  </div>
+</section>
+
+<section id="app" class="hidden">
+
+<header>
+  <div class="header-brand">FLEXI <span>CBT</span> ADMIN</div>
+  <div class="header-right">
+    <span class="admin-email" id="adminEmail"></span>
+    <button class="btn logout" id="logoutButton">Logout</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-label">Main menu</div>
+    <button class="nav-btn active" data-page="overview">📊 Overview</button>
+    <button class="nav-btn" data-page="candidates">👥 Candidates</button>
+    <button class="nav-btn" data-page="alerts">🚨 Proctoring Alerts</button>
+    <a class="nav-btn" href="admin-results.html" style="text-decoration:none">🏆 Examination Results</a>
+    <div class="sidebar-label">Other</div>
+    <button class="nav-btn" id="refreshNav">↻ Refresh Data</button>
+  </aside>
+
+  <main class="content">
+
+    <section id="overviewPage" class="page">
+
+      <div class="page-heading">
+        <div>
+          <h1>Dashboard Overview</h1>
+          <p>Flexi Free JAMB Form Examination Control Centre</p>
+        </div>
+        <div class="toolbar">
+          <button class="btn btn-light" id="refreshOverview">↻ Refresh</button>
+        </div>
+      </div>
+
+      <div class="notice">
+        This dashboard displays examination records and proctoring alerts.
+        Live camera/audio viewing is not yet provided by these alert endpoints.
+      </div>
+
+      <div id="overviewLoading" class="loading">Loading dashboard...</div>
+
+      <div id="overviewContent" class="hidden">
+
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-label">TOTAL CANDIDATES</div>
+            <div class="stat-value" id="totalCandidates">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">NOT STARTED</div>
+            <div class="stat-value" id="notStarted">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">CURRENTLY WRITING</div>
+            <div class="stat-value orange" id="currentlyWriting">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">SUBMITTED</div>
+            <div class="stat-value green" id="submitted">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">EXPIRED</div>
+            <div class="stat-value red" id="expired">0</div>
+          </div>
+        </div>
+
+        <div class="quick-grid">
+          <a href="admin-results.html" class="quick-card">
+            <div class="quick-icon">🏆</div>
+            <h3>Examination Results</h3>
+            <p>View candidate rankings, scores and subject performance.</p>
+          </a>
+
+          <div class="quick-card" role="button" tabindex="0" data-goto="candidates">
+            <div class="quick-icon">👥</div>
+            <h3>Manage Candidates</h3>
+            <p>Search candidates and inspect their examination status.</p>
+          </div>
+
+          <div class="quick-card" role="button" tabindex="0" data-goto="alerts">
+            <div class="quick-icon">🚨</div>
+            <h3>Proctoring Alerts</h3>
+            <p>Review camera, microphone, fullscreen and network alerts.</p>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Recent Proctoring Alerts</h2>
+              <p>Latest examination monitoring events.</p>
+            </div>
+            <button class="btn btn-light" data-goto="alerts">View All Alerts</button>
+          </div>
+          <div id="recentAlerts">
+            <div class="empty">No alerts loaded.</div>
+          </div>
+        </section>
+
+      </div>
+    </section>
+
+    <section id="candidatesPage" class="page hidden">
+      <div class="page-heading">
+        <div>
+          <h1>Candidate Management</h1>
+          <p>Search and inspect registered examination candidates.</p>
+        </div>
+        <button class="btn btn-light" id="refreshCandidates">↻ Refresh</button>
+      </div>
+
+      <div class="panel">
+        <div class="table-tools">
+          <input class="search" id="candidateSearch"
+            placeholder="Search name, registration number or WhatsApp...">
+        </div>
+
+        <div id="candidateLoading" class="loading">Loading candidates...</div>
+
+        <div class="table-wrap hidden" id="candidateTableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>CANDIDATE</th>
+                <th>REGISTRATION NUMBER</th>
+                <th>WHATSAPP</th>
+                <th>BATCH</th>
+                <th>EXAM STATUS</th>
+                <th>ACTION</th>
+              </tr>
+            </thead>
+            <tbody id="candidateTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="alertsPage" class="page hidden">
+      <div class="page-heading">
+        <div>
+          <h1>Proctoring Alerts</h1>
+          <p>Review monitoring events reported by candidate exam sessions.</p>
+        </div>
+        <button class="btn btn-light" id="refreshAlerts">↻ Refresh</button>
+      </div>
+
+      <div class="notice">
+        Alerts depend on the candidate browser sending an event to the server.
+        They are not a live camera or microphone stream.
+      </div>
+
+      <div class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Alert Records</h2>
+            <p>Resolve alerts after reviewing them.</p>
+          </div>
+
+          <select id="alertFilter" class="btn btn-light">
+            <option value="open">Open alerts</option>
+            <option value="all">All alerts</option>
+            <option value="resolved">Resolved alerts</option>
+          </select>
+        </div>
+
+        <div id="alertsLoading" class="loading">Loading alerts...</div>
+        <div id="alertsList"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+</section>
+
+<div id="candidateModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Candidate Details</h2>
+      <button class="close" id="closeCandidateModal">×</button>
+    </div>
+    <div id="candidateDetails">
+      <div class="loading">Loading candidate...</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+<script>
+"use strict";
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDfS0TufUE0eAOHUBprVUmHOYC5BccRTMA",
+  authDomain: "free-jamb-form-initiative.firebaseapp.com",
+  databaseURL: "https://free-jamb-form-initiative-default-rtdb.firebaseio.com",
+  projectId: "free-jamb-form-initiative",
+  storageBucket: "free-jamb-form-initiative.firebasestorage.app",
+  messagingSenderId: "301438259098",
+  appId: "1:301438259098:web:ed88f5b17638ee12a8b423"
+};
+
+const API = "/api/admin";
+let auth;
+let candidates = [];
+let alerts = [];
+
+const $ = id => document.getElementById(id);
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;",
+    '"':"&quot;", "'":"&#039;"
+  })[c]);
+}
+
+function dateText(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("en-NG", {
+    timeZone:"Africa/Lagos",
+    dateStyle:"medium",
+    timeStyle:"short"
+  });
+}
+
+function statusClass(status) {
+  const value = String(status || "not_started").toLowerCase();
+  return "status-" + value.replace(/[^a-z_]/g, "");
+}
+
+function statusText(status) {
+  const labels = {
+    not_started:"Not Started",
+    in_progress:"Currently Writing",
+    submitted:"Submitted",
+    expired:"Expired",
+    open:"Open",
+    resolved:"Resolved"
+  };
+  return labels[String(status || "").toLowerCase()] || status || "Not Started";
+}
+
+async function token() {
+  if (!auth.currentUser) throw new Error("Administrator session expired.");
+  return auth.currentUser.getIdToken();
+}
+
+async function request(path, options = {}) {
+  const idToken = await token();
+
+  const response = await fetch(API + path, {
+    ...options,
+    headers:{
+      ...(options.headers || {}),
+      Authorization:"Bearer " + idToken,
+      "Content-Type":"application/json"
+    },
+    cache:"no-store"
+  });
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("Invalid server response.");
+  }
+
+  if (!response.ok || !data.ok) {
+    throw new Error(data.message || data.code || "Request failed.");
+  }
+
+  return data;
+}
+
+function showPage(page) {
+  document.querySelectorAll(".page").forEach(section => {
+    section.classList.add("hidden");
+  });
+
+  const target = $(page + "Page");
+  if (target) target.classList.remove("hidden");
+
+  document.querySelectorAll(".nav-btn[data-page]").forEach(button => {
+    button.classList.toggle("active", button.dataset.page === page);
+  });
+
+  if (page === "overview") loadOverview();
+  if (page === "candidates") loadCandidates();
+  if (page === "alerts") loadAlerts();
+}
+
+document.querySelectorAll("[data-page]").forEach(button => {
+  button.addEventListener("click", () => showPage(button.dataset.page));
+});
+
+document.querySelectorAll("[data-goto]").forEach(button => {
+  button.addEventListener("click", () => showPage(button.dataset.goto));
+});
+
+// LOGIN
+
+$("loginForm").addEventListener("submit", async event => {
+  event.preventDefault();
+
+  $("loginButton").disabled = true;
+  $("loginButton").textContent = "Signing in...";
+  $("loginError").textContent = "";
+
+  try {
+    await auth.signInWithEmailAndPassword(
+      $("email").value.trim(),
+      $("password").value
+    );
+  } catch (error) {
+    $("loginError").textContent =
+      error.code === "auth/invalid-credential"
+        ? "Incorrect email or password."
+        : error.message;
+  } finally {
+    $("loginButton").disabled = false;
+    $("loginButton").textContent = "Sign In";
+  }
+});
+
+$("logoutButton").addEventListener("click", () => auth.signOut());
+
+// OVERVIEW
+
+async function loadOverview() {
+  $("overviewLoading").classList.remove("hidden");
+  $("overviewContent").classList.add("hidden");
+
+  try {
+    const [overview, alertData] = await Promise.all([
+      request("/overview"),
+      request("/alerts?status=open")
+    ]);
+
+    $("totalCandidates").textContent = overview.totalCandidates ?? 0;
+    $("notStarted").textContent = overview.notStarted ?? 0;
+    $("currentlyWriting").textContent = overview.currentlyWriting ?? 0;
+    $("submitted").textContent = overview.submitted ?? 0;
+    $("expired").textContent = overview.expired ?? 0;
+
+    const recent = Array.isArray(alertData.alerts)
+      ? alertData.alerts.slice(0, 5)
+      : [];
+
+    $("recentAlerts").innerHTML = recent.length
+      ? recent.map(alertHTML).join("")
+      : '<div class="empty">No open proctoring alerts.</div>';
+
+    $("overviewContent").classList.remove("hidden");
+  } catch(error) {
+    alert(error.message);
+  } finally {
+    $("overviewLoading").classList.add("hidden");
+  }
+}
+
+// CANDIDATES
+
+async function loadCandidates() {
+  $("candidateLoading").classList.remove("hidden");
+  $("candidateTableWrap").classList.add("hidden");
+
+  try {
+    const data = await request("/candidates");
+    candidates = Array.isArray(data.candidates) ? data.candidates : [];
+    renderCandidates(candidates);
+    $("candidateTableWrap").classList.remove("hidden");
+  } catch(error) {
+    alert(error.message);
+  } finally {
+    $("candidateLoading").classList.add("hidden");
+  }
+}
+
+function renderCandidates(list) {
+  $("candidateTable").innerHTML = list.length
+    ? list.map(candidate => `
+      <tr>
+        <td>
+          <div class="name">${esc(candidate.candidateName)}</div>
+          <div class="sub">${esc(candidate.candidateId || "")}</div>
+        </td>
+        <td>${esc(candidate.registrationNumber || "—")}</td>
+        <td>${esc(candidate.whatsappNumber || "—")}</td>
+        <td>${esc(candidate.batch || "—")}</td>
+        <td>
+          <span class="badge ${statusClass(candidate.status)}">
+            ${esc(statusText(candidate.status))}
+          </span>
+        </td>
+        <td>
+          <button class="btn btn-light view-candidate"
+            data-registration="${esc(candidate.registrationNumber || "")}"
+            data-candidate="${esc(candidate.candidateId || "")}">
+            View
+          </button>
+        </td>
+      </tr>
+    `).join("")
+    : '<tr><td colspan="6" class="empty">No candidates found.</td></tr>';
+}
+
+$("candidateSearch").addEventListener("input", event => {
+  const q = event.target.value.toLowerCase().trim();
+
+  renderCandidates(candidates.filter(candidate => [
+    candidate.candidateName,
+    candidate.registrationNumber,
+    candidate.whatsappNumber,
+    candidate.batch
+  ].some(value => String(value || "").toLowerCase().includes(q))));
+});
+
+$("candidateTable").addEventListener("click", event => {
+  const button = event.target.closest(".view-candidate");
+  if (!button) return;
+
+  viewCandidate({
+    registrationNumber:button.dataset.registration,
+    candidateId:button.dataset.candidate
+  });
+});
+
+// CANDIDATE DETAIL
+
+async function viewCandidate(candidate) {
+  $("candidateModal").classList.remove("hidden");
+  $("candidateDetails").innerHTML =
+    '<div class="loading">Loading candidate details...</div>';
+
+  try {
+    const params = new URLSearchParams();
+
+    if (candidate.registrationNumber) {
+      params.set("registrationNumber", candidate.registrationNumber);
+    } else {
+      params.set("candidateId", candidate.candidateId);
+    }
+
+    const data = await request("/candidate?" + params.toString());
+    const c = data.candidate || data;
+
+    const subjectList = Array.isArray(c.jambSubjects)
+      ? c.jambSubjects
+      : Array.isArray(c.subjects) ? c.subjects : [];
+
+    $("candidateDetails").innerHTML = `
+      <div class="detail-grid">
+        <div>
+          <div class="detail-label">Candidate Name</div>
+          <div class="detail-value">${esc(c.candidateName || c.fullName || c.name || "—")}</div>
+        </div>
+        <div>
+          <div class="detail-label">Registration Number</div>
+          <div class="detail-value">${esc(c.registrationNumber || "—")}</div>
+        </div>
+        <div>
+          <div class="detail-label">WhatsApp Number</div>
+          <div class="detail-value">${esc(c.whatsappNumber || "—")}</div>
+        </div>
+        <div>
+          <div class="detail-label">Examination Status</div>
+          <div class="detail-value">${esc(statusText(c.status || c.attempt?.status))}</div>
+        </div>
+        <div>
+          <div class="detail-label">Batch</div>
+          <div class="detail-value">${esc(c.batch || c.examSchedule?.batch || "—")}</div>
+        </div>
+        <div>
+          <div class="detail-label">Scheduled Time</div>
+          <div class="detail-value">${esc(c.scheduleTime || c.examSchedule?.time || "—")}</div>
+        </div>
+      </div>
+
+      <h3 style="font-size:13px;margin:18px 0 9px">Registered Subjects</h3>
+      <div>
+        ${subjectList.length
+          ? subjectList.map(s => `<span class="subject-tag">${esc(s)}</span>`).join("")
+          : '<span class="muted">No subjects returned.</span>'}
+      </div>
+
+      <p class="muted" style="margin-top:18px">
+        For scores and detailed answer review, use the Examination Results dashboard.
+      </p>
+      <a href="admin-results.html" class="btn btn-primary"
+        style="display:inline-block;text-decoration:none;margin-top:12px">
+        Open Results Dashboard
+      </a>
+    `;
+  } catch(error) {
+    $("candidateDetails").innerHTML =
+      `<div class="empty">${esc(error.message)}</div>`;
+  }
+}
+
+$("closeCandidateModal").addEventListener("click", () => {
+  $("candidateModal").classList.add("hidden");
+});
+
+$("candidateModal").addEventListener("click", event => {
+  if (event.target === $("candidateModal")) {
+    $("candidateModal").classList.add("hidden");
+  }
+});
+
+// ALERTS
+
+function alertHTML(alert) {
+  const eventName = String(alert.eventType || "UNKNOWN")
+    .replace(/_/g, " ");
+
+  return `
+    <div class="alert-item">
+      <div class="alert-top">
+        <div class="alert-title">${esc(eventName)}</div>
+        <span class="badge ${statusClass(alert.status)}">
+          ${esc(statusText(alert.status))}
+        </span>
+      </div>
+
+      <div class="alert-message">
+        ${esc(alert.message || "Examination monitoring event reported.")}
+      </div>
+
+      <div class="alert-meta">
+        Candidate: ${esc(alert.candidateName || alert.candidateId || "Unknown")}
+        · Registration: ${esc(alert.registrationNumber || "—")}
+        · Batch: ${esc(alert.batch || "—")}
+        · ${esc(dateText(alert.createdAt))}
+      </div>
+
+      ${alert.status === "open" ? `
+        <div class="alert-actions">
+          <button class="btn btn-primary resolve-alert"
+            data-alert-id="${esc(alert.id || alert.alertId)}">
+            Mark as Resolved
+          </button>
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+async function loadAlerts() {
+  $("alertsLoading").classList.remove("hidden");
+  $("alertsList").innerHTML = "";
+
+  try {
+    const status = $("alertFilter").value;
+    const data = await request("/alerts?status=" + encodeURIComponent(status));
+
+    alerts = Array.isArray(data.alerts) ? data.alerts : [];
+
+    $("alertsList").innerHTML = alerts.length
+      ? alerts.map(alertHTML).join("")
+      : '<div class="empty">No alerts found.</div>';
+  } catch(error) {
+    $("alertsList").innerHTML =
+      `<div class="empty">${esc(error.message)}</div>`;
+  } finally {
+    $("alertsLoading").classList.add("hidden");
+  }
+}
+
+$("alertsList").addEventListener("click", async event => {
+  const button = event.target.closest(".resolve-alert");
+  if (!button) return;
+
+  const alertId = button.dataset.alertId;
+  if (!alertId) {
+    alert("Alert ID is missing.");
+    return;
+  }
+
+  if (!confirm("Mark this alert as resolved?")) return;
+
+  button.disabled = true;
+
+  try {
+    await request("/alerts", {
+      method:"PATCH",
+      body:JSON.stringify({
+        alertId,
+        action:"resolve"
+      })
+    });
+
+    await loadAlerts();
+  } catch(error) {
+    alert(error.message);
+    button.disabled = false;
+  }
+});
+
+$("alertFilter").addEventListener("change", loadAlerts);
+
+// REFRESH CONTROLS
+
+$("refreshOverview").addEventListener("click", loadOverview);
+$("refreshCandidates").addEventListener("click", loadCandidates);
+$("refreshAlerts").addEventListener("click", loadAlerts);
+
+$("refreshNav").addEventListener("click", () => {
+  const active = document.querySelector(".nav-btn.active");
+  showPage(active?.dataset.page || "overview");
+});
+
+// FIREBASE INITIALIZATION
+
+try {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  auth = firebase.auth();
+
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      $("adminEmail").textContent = user.email || "Administrator";
+      $("loginScreen").classList.add("hidden");
+      $("app").classList.remove("hidden");
+      showPage("overview");
+    } else {
+      $("app").classList.add("hidden");
+      $("loginScreen").classList.remove("hidden");
+    }
+  });
+} catch(error) {
+  $("loginError").textContent =
+    "Firebase initialization failed: " + error.message;
+}
+</script>
+</body>
+</html>
