@@ -902,7 +902,7 @@ const auth = {
           <td>${escapeHTML(candidate.batch || "—")}</td>
 
           <td class="score">
-            ${formatNumber(candidate.totalScore)}/160
+            ${formatNumber(candidate.totalScore)}/400
           </td>
 
           <td>${formatNumber(candidate.percentage, 2)}%</td>
@@ -962,7 +962,7 @@ const auth = {
               <span>${escapeHTML(name)}</span>
 
               <strong>
-                ${formatNumber(data.score)}/${formatNumber(data.totalQuestions)}
+                ${formatNumber(data.score)}/100
                 (${formatNumber(data.percentage, 1)}%)
               </strong>
             </div>
@@ -1003,7 +1003,7 @@ const auth = {
           <div>
             <div class="detail-label">Total Score</div>
             <div class="detail-value green-text">
-              ${formatNumber(candidate.totalScore)}/160
+              ${formatNumber(candidate.totalScore)}/400
             </div>
           </div>
 
