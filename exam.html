@@ -722,6 +722,24 @@ function clearWarning() {
   $("warningNotice").textContent = "";
 }
 
+function handleProctorAutoSubmission(data) {
+  if (!data?.autoSubmitted || examSubmitted) return;
+
+  examSubmitted = true;
+  clearInterval(timerInterval);
+  clearInterval(saveInterval);
+  clearInterval(clockSyncInterval);
+  sessionStorage.removeItem(STORAGE.token);
+  sessionStorage.removeItem(STORAGE.attempt);
+
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => track.stop());
+    mediaStream = null;
+  }
+
+  showFatal("Your examination was automatically submitted after three separate proctoring warnings. Your saved answers have been recorded.");
+}
+
 function logBrowserEvent(type, details = {}) {
   const event = {
     eventId: crypto.randomUUID(),
@@ -736,26 +754,36 @@ function logBrowserEvent(type, details = {}) {
 
   console.info("[CBT EVENT]", event);
 
-  // Persist browser monitoring events through the authenticated Cloudflare API.
-  if (token && !examSubmitted) {
-    void apiRequest(API.proctorEvent, event).then(data => {
-      if (data.autoSubmitted) {
-        examSubmitted = true;
-        clearInterval(timerInterval);
-        clearInterval(saveInterval);
-        clearInterval(clockSyncInterval);
-        sessionStorage.removeItem(STORAGE.token);
-        sessionStorage.removeItem(STORAGE.attempt);
-        if (mediaStream) {
-          mediaStream.getTracks().forEach(track => track.stop());
-          mediaStream = null;
-        }
-        showFatal("Your examination was automatically submitted after three separate proctoring warnings. Your saved answers have been recorded.");
-      }
-    }).catch(error => {
-      console.error("[CBT PROCTOR EVENT] Could not record event:", error);
-    });
-  }
+  if (!token || examSubmitted) return;
+
+  // keepalive lets the browser finish sending PAGE_HIDDEN while Android
+  // backgrounds or freezes this page. The payload is deliberately small.
+  fetch(API.proctorEvent, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    cache: "no-store",
+    keepalive: true,
+    body: JSON.stringify(event)
+  }).then(async response => {
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error("Invalid proctoring API response");
+    }
+
+    if (!response.ok || data.ok === false) {
+      throw new Error(data.code || "PROCTOR_EVENT_FAILED");
+    }
+
+    console.info("[CBT PROCTOR EVENT] Recorded:", data);
+    handleProctorAutoSubmission(data);
+  }).catch(error => {
+    console.error("[CBT PROCTOR EVENT] Could not record event:", error);
+  });
 }
 
 function updateMediaStatus() {
