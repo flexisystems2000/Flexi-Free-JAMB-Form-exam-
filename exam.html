@@ -547,6 +547,12 @@ let pageWasHidden = false;
 let examSubmitted = false;
 let submissionInProgress = false;
 let saveInProgress = false;
+let proctorRetryInterval = null;
+let proctorLockdown = false;
+let proctorSending = false;
+let proctorEventQueue = [];
+let proctorWarningIds = new Set();
+let fullscreenWarningActive = false;
 
 let saveQueue = new Map();
 
@@ -607,6 +613,10 @@ function startAfterFullscreen() {
   saveInterval = setInterval(() => {
     saveAnswers();
   }, 3000);
+
+  proctorRetryInterval = setInterval(() => {
+    deliverProctorEvents();
+  }, 2000);
 
   clockSyncInterval = setInterval(async () => {
     try {
@@ -722,68 +732,188 @@ function clearWarning() {
   $("warningNotice").textContent = "";
 }
 
+function proctorQueueKey() {
+  const attemptId = attempt?.attemptId || sessionStorage.getItem(STORAGE.attempt);
+  return attemptId ? `cbt_proctor_queue:${attemptId}` : null;
+}
+
+function isQualifyingProctorWarning(type) {
+  return ["PAGE_HIDDEN", "MEDIA_DISCONNECTED", "FULLSCREEN_EXITED"].includes(type);
+}
+
+function persistProctorQueue() {
+  const key = proctorQueueKey();
+  if (!key) return;
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      events: proctorEventQueue,
+      warningIds: Array.from(proctorWarningIds)
+    }));
+  } catch (error) {
+    console.error("[CBT PROCTOR] Could not persist local queue:", error);
+  }
+}
+
+function loadProctorQueue() {
+  const key = proctorQueueKey();
+  if (!key) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) || "{}");
+    proctorEventQueue = Array.isArray(saved.events) ? saved.events : [];
+    proctorWarningIds = new Set(
+      Array.isArray(saved.warningIds) ? saved.warningIds : []
+    );
+    proctorEventQueue.forEach(event => {
+      if (isQualifyingProctorWarning(event.eventType)) {
+        proctorWarningIds.add(event.eventId);
+      }
+    });
+  } catch (error) {
+    console.error("[CBT PROCTOR] Could not restore local queue:", error);
+    proctorEventQueue = [];
+    proctorWarningIds = new Set();
+  }
+}
+
+function showProctorSubmissionPending() {
+  $("loadingScreen").style.display = "flex";
+  $("loadingScreen").innerHTML = `
+    <div class="loading-card" role="alert" aria-live="assertive">
+      <h2>Examination Locked</h2>
+      <p>Three proctoring warnings have been recorded by this browser.</p>
+      <p>Your examination is being submitted. Keep this page open while the incident records and submission are synchronised with the examination server.</p>
+      <p id="proctorSyncStatus">Synchronising with the server...</p>
+    </div>`;
+}
+
+function lockExamForProctorSubmission() {
+  if (proctorLockdown || examSubmitted) return;
+  proctorLockdown = true;
+  submissionInProgress = true;
+  clearInterval(saveInterval);
+  $("submitBtn").disabled = true;
+  $("confirmSubmitBtn").disabled = true;
+  $("previousBtn").disabled = true;
+  $("nextBtn").disabled = true;
+  showProctorSubmissionPending();
+}
+
 function handleProctorAutoSubmission(data) {
   if (!data?.autoSubmitted || examSubmitted) return;
 
   examSubmitted = true;
+  proctorLockdown = true;
+  submissionInProgress = false;
   clearInterval(timerInterval);
   clearInterval(saveInterval);
   clearInterval(clockSyncInterval);
+  clearInterval(proctorRetryInterval);
   sessionStorage.removeItem(STORAGE.token);
   sessionStorage.removeItem(STORAGE.attempt);
+
+  const key = proctorQueueKey();
+  if (key) {
+    try { localStorage.removeItem(key); } catch {}
+  }
 
   if (mediaStream) {
     mediaStream.getTracks().forEach(track => track.stop());
     mediaStream = null;
   }
 
-  showFatal("Your examination was automatically submitted after three separate proctoring warnings. Your saved answers have been recorded.");
+  $("loadingScreen").style.display = "flex";
+  $("loadingScreen").innerHTML = `
+    <div class="loading-card">
+      <h2>Examination Automatically Submitted</h2>
+      <p>Your third proctoring warning triggered automatic submission.</p>
+      <p>Your recorded answers have been submitted to the examination server.</p>
+      <p><strong>Submission time:</strong> ${escapeHtml(data.submittedAt || "")}</p>
+      <p>Please contact the examination administrator for your result.</p>
+    </div>`;
+}
+
+async function deliverProctorEvents() {
+  if (proctorSending || !token || !attempt?.attemptId || examSubmitted) return;
+
+  proctorSending = true;
+  try {
+    while (proctorEventQueue.length && !examSubmitted) {
+      const event = proctorEventQueue[0];
+
+      if (
+        proctorLockdown &&
+        isQualifyingProctorWarning(event.eventType) &&
+        proctorWarningIds.size >= 3 &&
+        !event.answerFlushAttempted
+      ) {
+        event.answerFlushAttempted = true;
+        persistProctorQueue();
+        try { await flushAnswers(true); }
+        catch (error) {
+          console.warn("[CBT PROCTOR] Final answer flush was incomplete:", error);
+        }
+      }
+
+      const response = await fetch(API.proctorEvent, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        cache: "no-store",
+        keepalive: true,
+        body: JSON.stringify(event)
+      });
+
+      let data;
+      try { data = await response.json(); }
+      catch { throw new Error("Invalid proctoring API response"); }
+
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.code || "PROCTOR_EVENT_FAILED");
+      }
+
+      proctorEventQueue.shift();
+      persistProctorQueue();
+      console.info("[CBT PROCTOR EVENT] Recorded:", data);
+      handleProctorAutoSubmission(data);
+    }
+  } catch (error) {
+    console.error("[CBT PROCTOR EVENT] Delivery pending:", error);
+    const status = $("proctorSyncStatus");
+    if (status) status.textContent =
+      "Connection unavailable. The browser has retained the incident and will retry automatically.";
+  } finally {
+    proctorSending = false;
+  }
 }
 
 function logBrowserEvent(type, details = {}) {
+  if (examSubmitted || !token || !attempt?.attemptId) return;
+
   const event = {
     eventId: crypto.randomUUID(),
     eventType: type,
-    severity: ["PAGE_HIDDEN", "MEDIA_DISCONNECTED", "FULLSCREEN_EXITED"].includes(type)
-      ? "warning"
-      : "info",
+    severity: isQualifyingProctorWarning(type) ? "warning" : "info",
     message: type.replace(/_/g, " "),
     details,
     occurredAt: new Date().toISOString()
   };
 
-  console.info("[CBT EVENT]", event);
+  proctorEventQueue.push(event);
 
-  if (!token || examSubmitted) return;
-
-  // keepalive lets the browser finish sending PAGE_HIDDEN while Android
-  // backgrounds or freezes this page. The payload is deliberately small.
-  fetch(API.proctorEvent, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`
-    },
-    cache: "no-store",
-    keepalive: true,
-    body: JSON.stringify(event)
-  }).then(async response => {
-    let data;
-    try {
-      data = await response.json();
-    } catch {
-      throw new Error("Invalid proctoring API response");
+  if (isQualifyingProctorWarning(type)) {
+    proctorWarningIds.add(event.eventId);
+    if (proctorWarningIds.size >= 3) {
+      lockExamForProctorSubmission();
     }
+  }
 
-    if (!response.ok || data.ok === false) {
-      throw new Error(data.code || "PROCTOR_EVENT_FAILED");
-    }
-
-    console.info("[CBT PROCTOR EVENT] Recorded:", data);
-    handleProctorAutoSubmission(data);
-  }).catch(error => {
-    console.error("[CBT PROCTOR EVENT] Could not record event:", error);
+  persistProctorQueue();
+  console.info("[CBT EVENT] Queued locally:", event, {
+    localWarningCount: proctorWarningIds.size
   });
+  void deliverProctorEvents();
 }
 
 function updateMediaStatus() {
@@ -1579,12 +1709,15 @@ function setupBrowserMonitoring() {
   });
 
   document.addEventListener("fullscreenchange", () => {
-    if (!document.fullscreenElement && !examSubmitted) {
+    if (!document.fullscreenElement && !examSubmitted && !fullscreenWarningActive) {
+      fullscreenWarningActive = true;
       logBrowserEvent("FULLSCREEN_EXITED");
 
       showWarning(
         "Fullscreen mode was exited. Please return to fullscreen."
       );
+    } else if (document.fullscreenElement) {
+      fullscreenWarningActive = false;
     }
   });
 
@@ -1621,6 +1754,11 @@ function setupBrowserMonitoring() {
   window.addEventListener("online", () => {
     showMessage("Internet connection restored.");
     logBrowserEvent("NETWORK_ONLINE");
+    void deliverProctorEvents();
+  });
+
+  window.addEventListener("pageshow", () => {
+    void deliverProctorEvents();
   });
 
   window.addEventListener("offline", () => {
@@ -1686,6 +1824,14 @@ async function initializeExam() {
     }
 
     sessionStorage.setItem(STORAGE.attempt, attempt.attemptId);
+
+    loadProctorQueue();
+    if (proctorWarningIds.size >= 3) {
+      lockExamForProctorSubmission();
+      void deliverProctorEvents();
+      return;
+    }
+    void deliverProctorEvents();
 
     deadline = parseServerTime(attempt.deadlineAt);
 
