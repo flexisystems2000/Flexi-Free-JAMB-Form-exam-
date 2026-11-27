@@ -1,4 +1,3 @@
-
 {
   "name": "flexi-free-jamb-form-exam",
   "version": "1.0.0",
@@ -9,7 +8,7 @@
   },
   "scripts": {
     "dev": "vercel dev",
-    "check": "node --check api/health.js && node --check api/cbt/verify.js && node --check api/cbt/start.js && node --check lib/firebase-admin.js"
+    "check": "node --input-type=module --check < worker/index.js && node --input-type=module --check < worker/livekit-token.js"
   },
   "dependencies": {
     "firebase-admin": "^13.5.0"
