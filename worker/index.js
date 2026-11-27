@@ -17,14 +17,14 @@ async function makeBank(subject){let src=BANKS[subject];if(!src)throw Error("SUB
 async function finalizeForProctor(e,attemptId){
 let a=(await db(e,"cbt_attempts?attempt_id=eq."+enc(attemptId)+"&select=*"))[0];
 if(!a)return false;
-if(a.status==="submitted"&&a.submission_reason==="THREE_PROCTOR_WARNINGS")return {submittedAt:a.submitted_at,totalScore:a.total_score,percentage:a.percentage,alreadyFinalized:true};
+if(a.status==="submitted"&&a.submission_reason==="FIVE_PROCTOR_WARNINGS")return {submittedAt:a.submitted_at,totalScore:a.total_score,percentage:a.percentage,alreadyFinalized:true};
 if(a.status!=="in_progress")return false;
 let snap=(await db(e,"cbt_question_snapshots?attempt_id=eq."+enc(attemptId)+"&select=*"))[0];
 let ans=await db(e,"cbt_answers?attempt_id=eq."+enc(attemptId)+"&select=*");
 let map=new Map(ans.map(x=>[x.question_id,x.selected_option])),scores={},total=0,count=0;
 for(let [sub,arr] of Object.entries(snap?.questions||{})){let sc=0;for(let q of arr){count++;if(map.get(q.id)===q.answer)sc++}total+=sc*MARKS_PER_QUESTION;scores[sub]={score:sc*MARKS_PER_QUESTION,correct:sc,totalQuestions:arr.length,percentage:arr.length?sc/arr.length*100:0}}
 let now=new Date().toISOString();
-let changed=await db(e,"cbt_attempts?attempt_id=eq."+enc(attemptId)+"&status=eq.in_progress",{method:"PATCH",headers:{"Prefer":"return=representation"},body:JSON.stringify({status:"submitted",submitted_at:now,submission_reason:"THREE_PROCTOR_WARNINGS",total_score:total,percentage:count?total/(count*MARKS_PER_QUESTION)*100:0,results:{subjectScores:scores,totalQuestions:count,answered:map.size,totalCorrect:Math.round(total/MARKS_PER_QUESTION),totalScore:total,maximumScore:count*MARKS_PER_QUESTION}})});
+let changed=await db(e,"cbt_attempts?attempt_id=eq."+enc(attemptId)+"&status=eq.in_progress",{method:"PATCH",headers:{"Prefer":"return=representation"},body:JSON.stringify({status:"submitted",submitted_at:now,submission_reason:"FIVE_PROCTOR_WARNINGS",total_score:total,percentage:count?total/(count*MARKS_PER_QUESTION)*100:0,results:{subjectScores:scores,totalQuestions:count,answered:map.size,totalCorrect:Math.round(total/MARKS_PER_QUESTION),totalScore:total,maximumScore:count*MARKS_PER_QUESTION}})});
 if(!changed||!changed.length)return false;
 await db(e,"cbt_sessions?attempt_id=eq."+enc(attemptId),{method:"PATCH",body:JSON.stringify({revoked_at:now})});
 return {submittedAt:now,totalScore:total,percentage:count?total/(count*MARKS_PER_QUESTION)*100:0};
@@ -54,14 +54,14 @@ let prior=(await db(e,"cbt_alerts?alert_id=eq."+enc(id)+"&select=alert_id"))[0];
 if(!prior)await db(e,"cbt_alerts",{method:"POST",body:JSON.stringify({alert_id:id,exam_id:s.examId,candidate_id:s.candidateId,candidate_name:name(c||{}),registration_number:c?.registration_number,attempt_id:s.attemptId,batch:c?.exam_schedule?.batch,event_type:eventType,severity:isWarning?"warning":(b.severity||"info"),message:String(b.message||eventType||"Event").slice(0,500),raw_data:b})});
 await db(e,"cbt_proctor_state?on_conflict=attempt_id",{method:"POST",headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({attempt_id:s.attemptId,candidate_id:s.candidateId,state:{...b,eventId:id},last_event_at:now,updated_at:now})});
 let warningRows=isWarning?await db(e,"cbt_alerts?attempt_id=eq."+enc(s.attemptId)+"&event_type=in.(PAGE_HIDDEN,MEDIA_DISCONNECTED,FULLSCREEN_EXITED)&select=alert_id"):[],warningCount=warningRows.length;
-if(warningCount>=3){
+if(warningCount>=5){
 let final=await finalizeForProctor(e,s.attemptId);
 if(final){
-let existing=(await db(e,"cbt_alerts?attempt_id=eq."+enc(s.attemptId)+"&event_type=eq.AUTO_SUBMITTED_THREE_WARNINGS&select=alert_id"))[0];
-if(!existing)await db(e,"cbt_alerts",{method:"POST",body:JSON.stringify({alert_id:crypto.randomUUID(),exam_id:s.examId,candidate_id:s.candidateId,candidate_name:name(c||{}),registration_number:c?.registration_number,attempt_id:s.attemptId,batch:c?.exam_schedule?.batch,event_type:"AUTO_SUBMITTED_THREE_WARNINGS",severity:"critical",message:"Examination automatically submitted after three separate proctoring incidents.",raw_data:{warningCount,triggerEvent:eventType,submittedAt:final.submittedAt,totalScore:final.totalScore}})});
-return out({ok:true,code:"AUTO_SUBMITTED_THREE_WARNINGS",autoSubmitted:true,warningCount,...final})
+let existing=(await db(e,"cbt_alerts?attempt_id=eq."+enc(s.attemptId)+"&event_type=eq.AUTO_SUBMITTED_FIVE_WARNINGS&select=alert_id"))[0];
+if(!existing)await db(e,"cbt_alerts",{method:"POST",body:JSON.stringify({alert_id:crypto.randomUUID(),exam_id:s.examId,candidate_id:s.candidateId,candidate_name:name(c||{}),registration_number:c?.registration_number,attempt_id:s.attemptId,batch:c?.exam_schedule?.batch,event_type:"AUTO_SUBMITTED_FIVE_WARNINGS",severity:"critical",message:"Examination automatically submitted after five separate proctoring incidents.",raw_data:{warningCount,triggerEvent:eventType,submittedAt:final.submittedAt,totalScore:final.totalScore}})});
+return out({ok:true,code:"AUTO_SUBMITTED_FIVE_WARNINGS",autoSubmitted:true,warningCount,...final})
 }}
-return out({ok:true,code:"PROCTOR_EVENT_RECORDED",warningCount,warningLimit:3})
+return out({ok:true,code:"PROCTOR_EVENT_RECORDED",warningCount,warningLimit:5})
 }
 if(p==="/api/cbt/finalize-expired"&&r.method==="POST"){if(!e.CRON_SECRET||r.headers.get("authorization")!=="Bearer "+e.CRON_SECRET)return out({ok:false,code:"UNAUTHORIZED"},401);let rows=await db(e,"cbt_attempts?status=eq.in_progress&deadline_at=lt."+enc(new Date().toISOString())+"&select=*"),done=0;for(let a of rows){let snap=(await db(e,"cbt_question_snapshots?attempt_id=eq."+enc(a.attempt_id)+"&select=*"))[0],ans=await db(e,"cbt_answers?attempt_id=eq."+enc(a.attempt_id)+"&select=*"),map=new Map(ans.map(x=>[x.question_id,x.selected_option])),scores={},total=0,count=0;for(let [sub,arr] of Object.entries(snap?.questions||{})){let sc=0;for(let q of arr){count++;if(map.get(q.id)===q.answer)sc++}total+=sc*MARKS_PER_QUESTION;scores[sub]={score:sc*MARKS_PER_QUESTION,correct:sc,totalQuestions:arr.length,percentage:arr.length?sc/arr.length*100:0}}let now=new Date().toISOString();await db(e,"cbt_attempts?attempt_id=eq."+enc(a.attempt_id)+"&status=eq.in_progress",{method:"PATCH",body:JSON.stringify({status:"expired",expired_at:now,expiry_reason:"BATCH_DEADLINE_REACHED",total_score:total,percentage:count?total/(count*MARKS_PER_QUESTION)*100:0,results:{subjectScores:scores,totalQuestions:count,answered:map.size,totalCorrect:Math.round(total/MARKS_PER_QUESTION),totalScore:total,maximumScore:count*MARKS_PER_QUESTION}})});await db(e,"cbt_sessions?attempt_id=eq."+enc(a.attempt_id),{method:"PATCH",body:JSON.stringify({revoked_at:now})});done++}return out({ok:true,finalized:done})}
 return out({ok:false,code:"NOT_FOUND"},404)
