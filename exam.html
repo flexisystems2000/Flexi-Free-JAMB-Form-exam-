@@ -403,9 +403,14 @@ main {
 
 <main>
   <div class="notice">
-    Your examination has an official fixed deadline. Refreshing the page,
-    losing internet connection, or disconnecting your camera/microphone
-    will not extend the examination time.
+    <strong>Camera, microphone and recording notice:</strong>
+    Your camera and microphone are used for examination supervision.
+    Your session may be monitored live by authorised Flexi Educational Consult
+    administrators and may be recorded for examination-integrity review.
+    Recordings are restricted to authorised administrators and scheduled for
+    deletion after 30 days. Your examination has an official fixed deadline;
+    refreshing the page, losing internet connection, or disconnecting your
+    camera/microphone will not extend the examination time.
   </div>
 
   <div id="warningNotice" class="notice warning" hidden></div>
@@ -521,6 +526,7 @@ const STORAGE = {
   verified: "cbt_candidate_verified",
   acknowledged: "cbt_instructions_acknowledged",
   devicePassed: "cbt_device_check_passed",
+  monitoringConsent: "cbt_monitoring_consent",
   token: "cbt_session_token",
   attempt: "cbt_attempt_id"
 };
@@ -709,6 +715,10 @@ function requirePreparation() {
 
   if (sessionStorage.getItem(STORAGE.acknowledged) !== "true") {
     throw new Error("Please acknowledge the examination instructions first.");
+  }
+
+  if (sessionStorage.getItem(STORAGE.monitoringConsent) !== "true") {
+    throw new Error("Please review and acknowledge the camera, microphone and recording notice first.");
   }
 
   if (sessionStorage.getItem(STORAGE.devicePassed) !== "true") {
