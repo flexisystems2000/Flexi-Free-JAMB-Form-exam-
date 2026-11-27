@@ -449,23 +449,47 @@ tbody tr:hover{background:#f8faf9}
   </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
 "use strict";
 
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDfS0TufUE0eAOHUBprVUmHOYC5BccRTMA",
-  authDomain: "free-jamb-form-initiative.firebaseapp.com",
-  databaseURL: "https://free-jamb-form-initiative-default-rtdb.firebaseio.com",
-  projectId: "free-jamb-form-initiative",
-  storageBucket: "free-jamb-form-initiative.firebasestorage.app",
-  messagingSenderId: "301438259098",
-  appId: "1:301438259098:web:ed88f5b17638ee12a8b423"
+const SUPABASE_URL = "https://wphocogahpljiwtdghsa.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_HYNF5IQ7mBHNpe48AsXhDA_m2XLH3_G";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const auth = {
+  currentUser: null,
+  attach(session) {
+    if (!session?.user) return null;
+    const user = session.user;
+    user.getIdToken = async () => session.access_token;
+    return user;
+  },
+  async signInWithEmailAndPassword(email, password) {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    this.currentUser = this.attach(data.session);
+    return data;
+  },
+  async signOut() {
+    const { error } = await supabaseClient.auth.signOut();
+    if (error) throw error;
+    this.currentUser = null;
+  },
+  onAuthStateChanged(callback) {
+    supabaseClient.auth.getSession().then(({ data }) => {
+      this.currentUser = this.attach(data.session);
+      callback(this.currentUser);
+    });
+    const { data } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+      this.currentUser = this.attach(session);
+      callback(this.currentUser);
+    });
+    return () => data.subscription.unsubscribe();
+  }
 };
 
-const API = "/api/admin";
+const API = "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/admin";
 let auth;
 let candidates = [];
 let alerts = [];
@@ -876,27 +900,18 @@ $("refreshNav").addEventListener("click", () => {
   showPage(active?.dataset.page || "overview");
 });
 
-// FIREBASE INITIALIZATION
-
-try {
-  firebase.initializeApp(FIREBASE_CONFIG);
-  auth = firebase.auth();
-
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      $("adminEmail").textContent = user.email || "Administrator";
-      $("loginScreen").classList.add("hidden");
-      $("app").classList.remove("hidden");
-      showPage("overview");
-    } else {
-      $("app").classList.add("hidden");
-      $("loginScreen").classList.remove("hidden");
-    }
-  });
-} catch(error) {
-  $("loginError").textContent =
-    "Firebase initialization failed: " + error.message;
-}
+// SUPABASE AUTH INITIALIZATION
+auth.onAuthStateChanged(user => {
+  if (user) {
+    $("adminEmail").textContent = user.email || "Administrator";
+    $("loginScreen").classList.add("hidden");
+    $("app").classList.remove("hidden");
+    showPage("overview");
+  } else {
+    $("app").classList.add("hidden");
+    $("loginScreen").classList.remove("hidden");
+  }
+});
 </script>
 </body>
 </html>
