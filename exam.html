@@ -780,7 +780,7 @@ function showProctorSubmissionPending() {
   $("loadingScreen").innerHTML = `
     <div class="loading-card" role="alert" aria-live="assertive">
       <h2>Examination Locked</h2>
-      <p>Three proctoring warnings have been recorded by this browser.</p>
+      <p>Five proctoring warnings have been recorded by this browser.</p>
       <p>Your examination is being submitted. Keep this page open while the incident records and submission are synchronised with the examination server.</p>
       <p id="proctorSyncStatus">Synchronising with the server...</p>
     </div>`;
@@ -843,7 +843,7 @@ async function deliverProctorEvents() {
       if (
         proctorLockdown &&
         isQualifyingProctorWarning(event.eventType) &&
-        proctorWarningIds.size >= 3 &&
+        proctorWarningIds.size >= 5 &&
         !event.answerFlushAttempted
       ) {
         event.answerFlushAttempted = true;
@@ -904,7 +904,7 @@ function logBrowserEvent(type, details = {}) {
 
   if (isQualifyingProctorWarning(type)) {
     proctorWarningIds.add(event.eventId);
-    if (proctorWarningIds.size >= 3) {
+    if (proctorWarningIds.size >= 5) {
       lockExamForProctorSubmission();
     }
   }
@@ -1826,7 +1826,7 @@ async function initializeExam() {
     sessionStorage.setItem(STORAGE.attempt, attempt.attemptId);
 
     loadProctorQueue();
-    if (proctorWarningIds.size >= 3) {
+    if (proctorWarningIds.size >= 5) {
       lockExamForProctorSubmission();
       void deliverProctorEvents();
       return;
