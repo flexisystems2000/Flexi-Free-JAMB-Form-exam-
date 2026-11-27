@@ -1,67 +1,27 @@
 # Flexi Free JAMB Form Exam
 
-Mobile-first CBT platform for the Flexi Educational Consult
-Free JAMB Form Initiative.
+Mobile-first CBT website for the Flexi Educational Consult Free JAMB Form Initiative.
+
+## Architecture
+
+- **Vercel:** static website hosting and branch preview deployments only.
+- **Cloudflare Worker:** all CBT APIs, including candidate verification, attempt creation, question delivery, answer saving/recovery, submission, expiry finalization, proctor events, admin overview, alerts, candidates, and results.
+- **Supabase:** CBT operational data and candidate registration records.
+- **Question bank:** `flexisystems2000/Flexi-JAMB-CBT-App-`.
+
+The website calls the Cloudflare Worker directly at:
+
+`https://flexi-jamb-cbt-api.flexisystems2000.workers.dev`
+
+There must be no Vercel Serverless Functions or `/api` handlers in this repository. Vercel is used only to preview and serve the frontend.
 
 ## Existing registration source
 
-Firebase project:
+The Cloudflare Worker reads the existing candidate registration records. The CBT must not modify original registration or schedule records.
 
-free-jamb-form-initiative
+## Deployment workflow
 
-Firestore collection:
-
-jamb_registrations
-
-The CBT reads these existing fields:
-
-- registrationNumber
-- fullName
-- whatsappNumber
-- jambSubjects
-- examSchedule
-
-The CBT must not modify the original registration or schedule records.
-
-## Technology
-
-- Vercel serverless API
-- Firebase Admin SDK
-- Firestore
-- Firebase Realtime Database for live status
-- Cloudflare Realtime for live media
-- Cloudflare R2 for protected recording storage
-
-## Environment variables
-
-Configure these in Vercel:
-
-FIREBASE_SERVICE_ACCOUNT_JSON
-FIREBASE_DATABASE_URL
-CBT_EXAM_ID
-CBT_START_WINDOW_SECONDS
-
-Never commit Firebase credentials to GitHub.
-
-## Current implementation
-
-- Mobile-friendly candidate verification page
-- Server-side registration lookup
-- Saved subject retrieval
-- Saved schedule retrieval
-- Server-time eligibility check
-- Existing attempt lookup
-- API health endpoint
-
-## Upcoming implementation
-
-1. Secure attempt creation and locking
-2. Instructions and consent page
-3. CBT question delivery
-4. Progressive answer saving
-5. 50-minute server-controlled timer
-6. Camera and microphone checks
-7. Live proctoring
-8. Recording and protected storage
-9. Admin monitoring dashboard
-10. Results and examination reports
+1. Push frontend changes to `cloudflare-migration`.
+2. Vercel creates a preview deployment of the website only.
+3. CBT API changes are deployed separately to the Cloudflare Worker.
+4. Do not merge to `main` or alter production candidates as part of isolated testing.
