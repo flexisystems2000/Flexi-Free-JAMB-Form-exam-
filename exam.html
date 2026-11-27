@@ -513,7 +513,8 @@ const API = {
   questions: "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/cbt/questions",
   answers: "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/cbt/answers",
   answerState: "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/cbt/answer-state",
-  submit: "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/cbt/submit"
+  submit: "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/cbt/submit",
+  proctorEvent: "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/cbt/proctor-event"
 };
 
 const STORAGE = {
@@ -665,12 +666,24 @@ function clearWarning() {
 }
 
 function logBrowserEvent(type, details = {}) {
-  // Local diagnostic signal only.
-  // Backend audit logging and admin alerts are separate pending integrations.
-  console.info("[CBT EVENT]", type, {
-    at: new Date().toISOString(),
-    details
-  });
+  const event = {
+    eventType: type,
+    severity: ["PAGE_HIDDEN", "MEDIA_DISCONNECTED", "FULLSCREEN_EXITED"].includes(type)
+      ? "warning"
+      : "info",
+    message: type.replace(/_/g, " "),
+    details,
+    occurredAt: new Date().toISOString()
+  };
+
+  console.info("[CBT EVENT]", event);
+
+  // Persist browser monitoring events through the authenticated Cloudflare API.
+  if (token && !examSubmitted) {
+    void apiRequest(API.proctorEvent, event).catch(error => {
+      console.error("[CBT PROCTOR EVENT] Could not record event:", error);
+    });
+  }
 }
 
 function updateMediaStatus() {
