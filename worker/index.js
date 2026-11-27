@@ -48,7 +48,7 @@ if(p==="/api/admin/livekit-token"&&r.method==="POST"){
 let b=await r.json(),batch=String(b.batch||"").trim();
 if(!batch||batch.length>80)return out({ok:false,code:"INVALID_BATCH"},400);
 if(!e.LIVEKIT_URL||!e.LIVEKIT_API_KEY||!e.LIVEKIT_API_SECRET)return out({ok:false,code:"LIVEKIT_NOT_CONFIGURED"},503);
-let regs=await db(e,"jamb_registrations?select=firestore_id,exam_schedule"),ids=new Set(regs.filter(c=>String(c.exam_schedule?.batch||"").toLowerCase()===batch.toLowerCase()).map(c=>c.firestore_id));
+let batchRegs=await db(e,"jamb_registrations?select=firestore_id,exam_schedule"),ids=new Set(batchRegs.filter(c=>String(c.exam_schedule?.batch||"").toLowerCase()===batch.toLowerCase()).map(c=>c.firestore_id));
 let attempts=await db(e,"cbt_attempts?exam_id=eq."+enc(eid(e))+"&status=eq.in_progress&select=candidate_id,deadline_at");
 let active=attempts.filter(a=>ids.has(a.candidate_id)&&new Date(a.deadline_at).getTime()>Date.now());
 if(!active.length)return out({ok:false,code:"NO_ACTIVE_CANDIDATES_IN_BATCH"},409);
