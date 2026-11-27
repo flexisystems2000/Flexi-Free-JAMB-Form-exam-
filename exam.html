@@ -510,6 +510,7 @@ main {
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 <script>
 "use strict";
 
@@ -520,7 +521,8 @@ const API = {
   answers: "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/cbt/answers",
   answerState: "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/cbt/answer-state",
   submit: "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/cbt/submit",
-  proctorEvent: "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/cbt/proctor-event"
+  proctorEvent: "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/cbt/proctor-event",
+  livekitToken: "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/cbt/livekit-token"
 };
 
 const STORAGE = {
@@ -550,6 +552,8 @@ let currentSubjectIndex = 0;
 let currentQuestionIndex = 0;
 
 let mediaStream = null;
+let liveKitRoom = null;
+let liveKitPublishing = false;
 let mediaWarning = false;
 let pageWasHidden = false;
 let examSubmitted = false;
@@ -650,6 +654,47 @@ function startAfterFullscreen() {
   });
 
   updateMediaStatus();
+  void connectLiveKitPublisher();
+}
+
+async function connectLiveKitPublisher() {
+  if (liveKitPublishing || !mediaStream) return;
+  if (sessionStorage.getItem(STORAGE.monitoringConsent) !== "true") return;
+  if (!window.LivekitClient?.Room) {
+    console.error("LiveKit browser SDK is unavailable.");
+    return;
+  }
+
+  try {
+    const access = await apiRequest(API.livekitToken, { monitoringConsent: true });
+    liveKitRoom = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+    await liveKitRoom.connect(access.url, access.token);
+
+    const videoTrack = mediaStream.getVideoTracks()[0];
+    const audioTrack = mediaStream.getAudioTracks()[0];
+    if (!videoTrack || !audioTrack) throw new Error("CAMERA_OR_MICROPHONE_NOT_AVAILABLE");
+
+    await Promise.all([
+      liveKitRoom.localParticipant.publishTrack(videoTrack, {
+        name: "candidate-camera",
+        source: LivekitClient.Track.Source.Camera,
+        simulcast: true
+      }),
+      liveKitRoom.localParticipant.publishTrack(audioTrack, {
+        name: "candidate-microphone",
+        source: LivekitClient.Track.Source.Microphone
+      })
+    ]);
+
+    liveKitPublishing = true;
+    logBrowserEvent("LIVE_MONITORING_CONNECTED", { room: access.room });
+    console.info("Flexi CBT live monitoring connected.");
+  } catch (error) {
+    console.error("Live monitoring connection failed:", error);
+    logBrowserEvent("LIVE_MONITORING_CONNECTION_FAILED", {
+      code: error.code || error.message || "UNKNOWN"
+    });
+  }
 }
 
 function escapeHtml(value) {
@@ -987,7 +1032,12 @@ async function acquireMedia() {
   }
 
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "user" },
+    video: {
+      facingMode: "user",
+      width: { ideal: 640, max: 640 },
+      height: { ideal: 480, max: 480 },
+      frameRate: { ideal: 20, max: 24 }
+    },
     audio: true
   });
 
