@@ -397,6 +397,7 @@ main {
   <div class="status-line">
     <span class="status-pill" id="cameraStatus">Camera: Checking</span>
     <span class="status-pill" id="micStatus">Microphone: Checking</span>
+    <span class="status-pill" id="liveMonitoringStatus">Live monitoring: Not connected</span>
     <span class="status-pill" id="saveStatus">Answers: Not yet saved</span>
   </div>
 </header>
@@ -687,9 +688,11 @@ async function connectLiveKitPublisher() {
     ]);
 
     liveKitPublishing = true;
+    $("liveMonitoringStatus").textContent = "Live monitoring: Connected";
     logBrowserEvent("LIVE_MONITORING_CONNECTED", { room: access.room });
     console.info("Flexi CBT live monitoring connected.");
   } catch (error) {
+    $("liveMonitoringStatus").textContent = "Live monitoring: Unavailable";
     console.error("Live monitoring connection failed:", error);
     logBrowserEvent("LIVE_MONITORING_CONNECTION_FAILED", {
       code: error.code || error.message || "UNKNOWN"
