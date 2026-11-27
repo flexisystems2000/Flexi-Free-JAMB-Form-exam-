@@ -492,6 +492,8 @@ const auth = {
 const API = "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/admin";
 let candidates = [];
 let alerts = [];
+let overviewLoadingInProgress = false;
+let alertsLoadingInProgress = false;
 
 const $ = id => document.getElementById(id);
 
@@ -616,9 +618,13 @@ $("logoutButton").addEventListener("click", () => auth.signOut());
 
 // OVERVIEW
 
-async function loadOverview() {
-  $("overviewLoading").classList.remove("hidden");
-  $("overviewContent").classList.add("hidden");
+async function loadOverview(silent = false) {
+  if (overviewLoadingInProgress) return;
+  overviewLoadingInProgress = true;
+  if (!silent) {
+    $("overviewLoading").classList.remove("hidden");
+    $("overviewContent").classList.add("hidden");
+  }
 
   try {
     const [overview, alertData] = await Promise.all([
@@ -644,7 +650,8 @@ async function loadOverview() {
   } catch(error) {
     alert(error.message);
   } finally {
-    $("overviewLoading").classList.add("hidden");
+    if (!silent) $("overviewLoading").classList.add("hidden");
+    overviewLoadingInProgress = false;
   }
 }
 
@@ -835,9 +842,13 @@ function alertHTML(alert) {
   `;
 }
 
-async function loadAlerts() {
-  $("alertsLoading").classList.remove("hidden");
-  $("alertsList").innerHTML = "";
+async function loadAlerts(silent = false) {
+  if (alertsLoadingInProgress) return;
+  alertsLoadingInProgress = true;
+  if (!silent) {
+    $("alertsLoading").classList.remove("hidden");
+    $("alertsList").innerHTML = "";
+  }
 
   try {
     const status = $("alertFilter").value;
@@ -852,7 +863,8 @@ async function loadAlerts() {
     $("alertsList").innerHTML =
       `<div class="empty">${esc(error.message)}</div>`;
   } finally {
-    $("alertsLoading").classList.add("hidden");
+    if (!silent) $("alertsLoading").classList.add("hidden");
+    alertsLoadingInProgress = false;
   }
 }
 
@@ -887,6 +899,18 @@ $("alertsList").addEventListener("click", async event => {
 });
 
 $("alertFilter").addEventListener("change", loadAlerts);
+
+// Keep the admin's overview and proctoring alerts current while the
+// dashboard is open. Silent refreshes preserve the existing display.
+setInterval(() => {
+  if (document.hidden || !auth.currentUser) return;
+  const activePage = document.querySelector(".page:not(.hidden)")?.id;
+  if (activePage === "alertsPage") {
+    loadAlerts(true);
+  } else if (activePage === "overviewPage") {
+    loadOverview(true);
+  }
+}, 5000);
 
 // REFRESH CONTROLS
 
