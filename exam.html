@@ -544,6 +544,7 @@ let currentQuestionIndex = 0;
 
 let mediaStream = null;
 let mediaWarning = false;
+let pageWasHidden = false;
 let examSubmitted = false;
 let submissionInProgress = false;
 let saveInProgress = false;
@@ -575,6 +576,63 @@ function setLoading(message) {
 
 function hideLoading() {
   $("loadingScreen").style.display = "none";
+}
+
+function showFullscreenGate() {
+  const screen = $("loadingScreen");
+  screen.style.display = "flex";
+  screen.innerHTML = `
+    <div class="loading-card" role="dialog" aria-modal="true" aria-labelledby="fullscreenTitle">
+      <h2 id="fullscreenTitle">Enter Fullscreen Mode</h2>
+      <p>Fullscreen mode is required before your examination can be displayed.</p>
+      <p>Tap the button below to enter fullscreen. You cannot dismiss this prompt.</p>
+      <button class="btn btn-green" id="enterRequiredFullscreen" type="button">
+        Enter Fullscreen
+      </button>
+      <p id="fullscreenError" role="alert" aria-live="polite"></p>
+    </div>`;
+
+  $("enterRequiredFullscreen").addEventListener("click", async () => {
+    const entered = await enterFullscreen();
+    if (entered) {
+      hideLoading();
+      startAfterFullscreen();
+    } else {
+      $("fullscreenError").textContent =
+        "Fullscreen was not enabled. Please tap Enter Fullscreen again or use a supported browser.";
+    }
+  });
+}
+
+function startAfterFullscreen() {
+  saveInterval = setInterval(() => {
+    saveAnswers();
+  }, 3000);
+
+  clockSyncInterval = setInterval(async () => {
+    try {
+      await syncServerClock();
+    } catch (error) {
+      if (
+        error.code === "EXAM_TIME_EXPIRED" ||
+        error.code === "ATTEMPT_EXPIRED"
+      ) {
+        showWarning("The examination deadline has passed.");
+      }
+    }
+  }, 30000);
+
+  showMessage(
+    attempt?.resumed
+      ? "Your examination has been restored. Good luck."
+      : "Your examination has started. Good luck."
+  );
+
+  logBrowserEvent("EXAM_PAGE_READY", {
+    attemptId: attempt?.attemptId
+  });
+
+  updateMediaStatus();
 }
 
 function escapeHtml(value) {
@@ -1446,8 +1504,10 @@ async function enterFullscreen() {
     if (!document.fullscreenElement) {
       await document.documentElement.requestFullscreen();
     }
-  } catch {
-    showMessage("Fullscreen could not be enabled on this device.");
+    return Boolean(document.fullscreenElement);
+  } catch (error) {
+    console.error("[CBT FULLSCREEN] Entry failed:", error);
+    return false;
   }
 }
 
@@ -1459,17 +1519,19 @@ async function enterFullscreen() {
 function setupBrowserMonitoring() {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
+      pageWasHidden = true;
       logBrowserEvent("PAGE_HIDDEN");
-
       showWarning(
-        "You have left the examination page. Return immediately. Your timer continues."
+        "WARNING: You switched away from the examination page. Return immediately. Your timer continues."
       );
-
     } else {
       logBrowserEvent("PAGE_VISIBLE");
 
-      if (!mediaWarning) {
-        clearWarning();
+      if (pageWasHidden) {
+        showWarning(
+          "PROCTORING WARNING: You switched away from the examination page. This incident has been recorded. Your examination timer continued."
+        );
+        showMessage("Warning: Leaving the examination page has been recorded.");
       }
     }
   });
@@ -1613,42 +1675,10 @@ async function initializeExam() {
     }
 
     renderExam();
-    hideLoading();
-
     startTimer();
 
-    // Fullscreen may require a browser gesture on some devices.
-    await enterFullscreen();
-
-    saveInterval = setInterval(() => {
-      saveAnswers();
-    }, 3000);
-
-    clockSyncInterval = setInterval(async () => {
-      try {
-        await syncServerClock();
-
-      } catch (error) {
-        if (
-          error.code === "EXAM_TIME_EXPIRED" ||
-          error.code === "ATTEMPT_EXPIRED"
-        ) {
-          showWarning("The examination deadline has passed.");
-        }
-      }
-    }, 30000);
-
-    showMessage(
-      started.resumed
-        ? "Your examination has been restored."
-        : "Your examination has started. Good luck."
-    );
-
-    logBrowserEvent("EXAM_PAGE_READY", {
-      attemptId: attempt.attemptId
-    });
-
-    updateMediaStatus();
+    // Keep the exam UI covered until the candidate explicitly enters fullscreen.
+    showFullscreenGate();
 
   } catch (error) {
     console.error("EXAM INITIALIZATION ERROR:", error);
@@ -1694,7 +1724,12 @@ $("closeCalculatorBtn").addEventListener("click", () => {
   $("calculatorModal").classList.remove("show");
 });
 
-$("fullscreenBtn").addEventListener("click", enterFullscreen);
+$("fullscreenBtn").addEventListener("click", async () => {
+  const entered = await enterFullscreen();
+  if (!entered) {
+    showMessage("Please use the browser's fullscreen control and try again.");
+  }
+});
 
 initCalculator();
 
