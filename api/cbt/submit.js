@@ -111,7 +111,9 @@ function calculateScores(questionSnapshot, answerDocs) {
       unanswered: questions.length - answered,
       correct,
       incorrect: answered - correct,
-      score: correct,
+      score: Number((correct * 2.5).toFixed(1)),
+      correct,
+      maximumScore: questions.length * 2.5,
       percentage: Number((correct / questions.length * 100).toFixed(2))
     };
 
@@ -127,7 +129,9 @@ function calculateScores(questionSnapshot, answerDocs) {
     totalUnanswered: totalQuestions - totalAnswered,
     totalCorrect,
     totalIncorrect: totalAnswered - totalCorrect,
-    totalScore: totalCorrect,
+    totalScore: Number((totalCorrect * 2.5).toFixed(1)),
+    rawCorrect: totalCorrect,
+    maximumScore: totalQuestions * 2.5,
     percentage: totalQuestions
       ? Number((totalCorrect / totalQuestions * 100).toFixed(2))
       : 0
