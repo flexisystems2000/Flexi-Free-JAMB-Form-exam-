@@ -4,7 +4,7 @@ const BANKS={"Use of English":[["use_of_english.json",35],["the_lekki_headmaster
 const out=(x,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"content-type":"application/json","cache-control":"no-store","access-control-allow-origin":"*"}});
 const enc=encodeURIComponent, digits=x=>String(x||"").replace(/\D/g,""), name=c=>String(c.full_name||c.fullName||c.name||[c.firstName,c.lastName].filter(Boolean).join(" ")).trim();
 const eid=e=>e.CBT_EXAM_ID||EXAM;
-function authHeaders(e){return {apikey:e.SUPABASE_SERVICE_ROLE_KEY,authorization:"Bearer "+e.SUPABASE_SERVICE_ROLE_KEY,"content-type":"application/json"}}
+function authHeaders(e){return {apikey:e.SUPABASE_SERVICE_ROLE_KEY,"content-type":"application/json"}}
 async function db(e,p,o){if(!e.SUPABASE_URL||!e.SUPABASE_SERVICE_ROLE_KEY)throw Error("SERVICE_NOT_CONFIGURED");let r=await fetch(e.SUPABASE_URL+"/rest/v1/"+p,{...o,headers:{...authHeaders(e),...(o&&o.headers||{})}});let t=await r.text(),v;try{v=t?JSON.parse(t):null}catch{v=t}if(!r.ok)throw Object.assign(Error("DATABASE_ERROR"),{status:r.status,detail:v});return v}
 async function getCandidate(e,v){let all=await db(e,"jamb_registrations?select=*"),ph=digits(v),reg=String(v||"").trim().toUpperCase();return all.filter(x=>(ph.length>=8&&digits(x.whatsapp_number)===ph)||String(x.registration_number||"").trim().toUpperCase()===reg)}
 function schedAt(s){if(s.scheduledAt||s.scheduled_at){let n=Date.parse(s.scheduledAt||s.scheduled_at);return Number.isFinite(n)?n:null}if(s.examDate!==EXAM_DATE)return null;let t=String(s.time24||"");if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(t))return null;let a=t.split(":").map(Number);return Date.UTC(2026,10,28,a[0]-1,a[1])}
