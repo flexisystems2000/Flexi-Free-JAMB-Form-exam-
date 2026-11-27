@@ -444,7 +444,6 @@ main {
 
       <div class="sidebar-actions">
         <button class="btn btn-gray" id="calculatorBtn">Open Calculator</button>
-        <button class="btn btn-gray" id="fullscreenBtn">Enter Fullscreen</button>
         <button class="btn btn-red" id="submitBtn">Submit Examination</button>
       </div>
 
@@ -1722,13 +1721,6 @@ $("calculatorBtn").addEventListener("click", () => {
 
 $("closeCalculatorBtn").addEventListener("click", () => {
   $("calculatorModal").classList.remove("show");
-});
-
-$("fullscreenBtn").addEventListener("click", async () => {
-  const entered = await enterFullscreen();
-  if (!entered) {
-    showMessage("Please use the browser's fullscreen control and try again.");
-  }
 });
 
 initCalculator();
