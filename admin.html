@@ -176,6 +176,14 @@ tbody tr:hover{background:#f8faf9}
 .alert-meta{font-size:10px;color:var(--muted);margin-top:8px}
 .alert-actions{margin-top:10px}
 
+.monitor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px}
+.monitor-tile{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#0f172a;color:white;min-width:0}
+.monitor-tile-head{display:flex;justify-content:space-between;gap:8px;padding:10px;font-size:11px;font-weight:700}
+.monitor-tile video{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#020617}
+.monitor-tile audio{display:block;width:calc(100% - 16px);margin:8px}
+.monitor-placeholder{aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:12px}
+.monitor-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.monitor-controls input{padding:10px;border:1px solid var(--border);border-radius:8px;min-width:180px}
 .empty{padding:25px;text-align:center;color:var(--muted);font-size:12px}
 .loading{text-align:center;padding:35px;color:var(--muted);font-size:12px}
 .notice{
@@ -277,6 +285,7 @@ tbody tr:hover{background:#f8faf9}
     <div class="sidebar-label">Main menu</div>
     <button class="nav-btn active" data-page="overview">📊 Overview</button>
     <button class="nav-btn" data-page="candidates">👥 Candidates</button>
+    <button class="nav-btn" data-page="monitoring">📹 Live Monitoring</button>
     <button class="nav-btn" data-page="alerts">🚨 Proctoring Alerts</button>
     <a class="nav-btn" href="admin-results.html" style="text-decoration:none">🏆 Examination Results</a>
     <div class="sidebar-label">Other</div>
@@ -400,6 +409,35 @@ tbody tr:hover{background:#f8faf9}
       </div>
     </section>
 
+    <section id="monitoringPage" class="page hidden">
+      <div class="page-heading">
+        <div>
+          <h1>Live Batch Monitoring</h1>
+          <p>View candidate camera and microphone streams for an active examination batch.</p>
+        </div>
+      </div>
+      <div class="notice">
+        Live monitoring is visible only to authenticated administrators. Candidates must be informed and the required permissions must be in place before monitoring begins. Recording is not enabled by this live-view connection.
+      </div>
+      <div class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Connect to an active batch</h2>
+            <p>Up to five candidate feeds can be displayed together.</p>
+          </div>
+          <span class="badge" id="monitorStatus">Not connected</span>
+        </div>
+        <div class="monitor-controls">
+          <input id="monitorBatch" maxlength="80" placeholder="Enter exact batch name">
+          <button class="btn btn-primary" id="connectMonitor">Connect</button>
+          <button class="btn btn-light" id="disconnectMonitor" disabled>Disconnect</button>
+        </div>
+        <div id="monitorGrid" class="monitor-grid">
+          <div class="empty">Connect to an active batch to view its candidates.</div>
+        </div>
+      </div>
+    </section>
+
     <section id="alertsPage" class="page hidden">
       <div class="page-heading">
         <div>
@@ -449,6 +487,7 @@ tbody tr:hover{background:#f8faf9}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
@@ -492,6 +531,7 @@ const auth = {
 const API = "https://flexi-jamb-cbt-api.flexisystems2000.workers.dev/api/admin";
 let candidates = [];
 let alerts = [];
+let monitoringRoom = null;
 let overviewLoadingInProgress = false;
 let alertsLoadingInProgress = false;
 
@@ -563,6 +603,128 @@ async function request(path, options = {}) {
 
   return data;
 }
+
+function monitorTile(participant) {
+  const safeId = "monitor-" + String(participant.identity || "").replace(/[^a-zA-Z0-9_-]/g, "-");
+  let tile = document.getElementById(safeId);
+  if (tile) return tile;
+
+  tile = document.createElement("div");
+  tile.className = "monitor-tile";
+  tile.id = safeId;
+
+  const head = document.createElement("div");
+  head.className = "monitor-tile-head";
+  const name = document.createElement("span");
+  name.textContent = participant.name || participant.identity || "Candidate";
+  const state = document.createElement("span");
+  state.textContent = "Connected";
+  head.append(name, state);
+
+  const placeholder = document.createElement("div");
+  placeholder.className = "monitor-placeholder";
+  placeholder.textContent = "Waiting for camera feed…";
+  tile.append(head, placeholder);
+  $("monitorGrid").appendChild(tile);
+  return tile;
+}
+
+function attachMonitorTrack(track, participant) {
+  const tile = monitorTile(participant);
+  const placeholder = tile.querySelector(".monitor-placeholder");
+  if (track.kind === LivekitClient.Track.Kind.Video) {
+    const video = track.attach();
+    video.autoplay = true;
+    video.playsInline = true;
+    video.muted = true;
+    video.style.width = "100%";
+    video.style.aspectRatio = "4 / 3";
+    video.style.objectFit = "cover";
+    if (placeholder) placeholder.replaceWith(video);
+    else tile.insertBefore(video, tile.querySelector("audio"));
+  } else if (track.kind === LivekitClient.Track.Kind.Audio) {
+    const audio = track.attach();
+    audio.autoplay = true;
+    audio.controls = true;
+    tile.appendChild(audio);
+  }
+}
+
+async function connectBatchMonitor() {
+  const batch = $("monitorBatch").value.trim();
+  if (!batch) {
+    alert("Enter the exact batch name first.");
+    return;
+  }
+  if (!window.LivekitClient?.Room) {
+    alert("The LiveKit browser library could not be loaded.");
+    return;
+  }
+
+  $("connectMonitor").disabled = true;
+  $("monitorStatus").textContent = "Connecting…";
+  try {
+    if (monitoringRoom) await monitoringRoom.disconnect();
+    const access = await request("/livekit-token", {
+      method: "POST",
+      body: JSON.stringify({ batch })
+    });
+
+    monitoringRoom = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+    monitoringRoom
+      .on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+        attachMonitorTrack(track, participant);
+      })
+      .on(LivekitClient.RoomEvent.TrackUnsubscribed, track => {
+        track.detach();
+      })
+      .on(LivekitClient.RoomEvent.ParticipantConnected, participant => {
+        monitorTile(participant);
+      })
+      .on(LivekitClient.RoomEvent.ParticipantDisconnected, participant => {
+        const id = "monitor-" + String(participant.identity || "").replace(/[^a-zA-Z0-9_-]/g, "-");
+        document.getElementById(id)?.remove();
+      })
+      .on(LivekitClient.RoomEvent.Disconnected, () => {
+        $("monitorStatus").textContent = "Disconnected";
+      });
+
+    await monitoringRoom.connect(access.url, access.token);
+    monitoringRoom.remoteParticipants.forEach(participant => {
+      monitorTile(participant);
+      participant.trackPublications.forEach(publication => {
+        if (publication.track && publication.isSubscribed) {
+          attachMonitorTrack(publication.track, participant);
+        }
+      });
+    });
+
+    $("monitorGrid").querySelector(".empty")?.remove();
+    $("monitorStatus").textContent = "Connected · " + access.activeCandidates + " active";
+    $("disconnectMonitor").disabled = false;
+  } catch (error) {
+    console.error("Batch monitoring connection failed:", error);
+    $("monitorStatus").textContent = "Connection failed";
+    alert(error.message || "Unable to connect to this batch.");
+    if (monitoringRoom) {
+      await monitoringRoom.disconnect();
+      monitoringRoom = null;
+    }
+  } finally {
+    $("connectMonitor").disabled = false;
+  }
+}
+
+async function disconnectBatchMonitor() {
+  if (monitoringRoom) await monitoringRoom.disconnect();
+  monitoringRoom = null;
+  $("monitorGrid").innerHTML = '<div class="empty">Disconnected from the batch.</div>';
+  $("monitorStatus").textContent = "Not connected";
+  $("disconnectMonitor").disabled = true;
+}
+
+$("connectMonitor").addEventListener("click", connectBatchMonitor);
+$("disconnectMonitor").addEventListener("click", disconnectBatchMonitor);
 
 function showPage(page) {
   document.querySelectorAll(".page").forEach(section => {
