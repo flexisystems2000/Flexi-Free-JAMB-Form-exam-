@@ -984,6 +984,13 @@
 
       closeDeviceModal();
 
+      // Continue automatically to the examination page after the
+      // successful device check. exam.html will reacquire the devices
+      // and create/resume the authenticated examination session.
+      setTimeout(() => {
+        window.location.href = "exam.html";
+      }, 900);
+
     }
 
 
