@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#15803d">
+<title>Flexi JAMB CBT — Isolated Test Workflow</title>
+<style>
+:root{font-family:Arial,sans-serif;color:#172033;background:#f3f4f6}*{box-sizing:border-box}body{margin:0}header{background:#15803d;color:white;padding:18px}main{max-width:850px;margin:20px auto;padding:0 14px 40px}.card{background:white;border:1px solid #e5e7eb;border-radius:12px;padding:17px;margin:13px 0}.muted{color:#64748b;font-size:13px;line-height:1.5}.warning{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:12px;border-radius:8px;line-height:1.5}.step{display:flex;gap:10px;align-items:center}.num{background:#dcfce7;color:#166534;border-radius:50%;width:28px;height:28px;display:grid;place-items:center;font-weight:bold;flex:none}button{border:0;border-radius:8px;padding:11px 15px;background:#15803d;color:white;font-weight:bold;margin:5px 5px 5px 0}button:disabled{opacity:.45}button.secondary{background:#e5e7eb;color:#111827}input[type=text]{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:7px;font-size:15px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0f172a;color:#e2e8f0;padding:11px;border-radius:8px;font-size:12px;max-height:220px;overflow:auto}.status{font-weight:bold;color:#475569}.ok{color:#15803d}.bad{color:#b91c1c}.question{line-height:1.55}.choice{display:block;padding:9px;border:1px solid #cbd5e1;border-radius:7px;margin:7px 0}.choice input{margin-right:8px}
+</style>
+</head>
+<body>
+<header><strong>FLEXI EDUCATIONAL CONSULT</strong><div>Free JAMB Form Initiative · Isolated CBT Test</div></header>
+<main>
+<h2>Isolated test-candidate workflow</h2>
+<p class="muted">This page uses only the dedicated test registration below. It does not use any of the 23 real candidate records. It calls the live CBT Worker and Supabase-backed API.</p>
+<div class="warning"><strong>Test-only warning:</strong> Starting creates one permanent test attempt. Saving writes a test answer. Submitting ends that attempt and records a test result. This page is not for real candidates. Do not start until you are ready to run the test, and use the scheduled entry window.</div>
+<section class="card">
+<label for="registration"><strong>Test registration number</strong></label>
+<input id="registration" type="text" value="TEST-WISDOM-UKO-20261127" readonly>
+<p class="muted">Scheduled: 27 November 2026 · 8:38 a.m. WAT · 50 minutes · Test Batch</p>
+<label class="choice"><input id="confirm" type="checkbox"> I understand this will create and submit a test-only exam attempt.</label>
+</section>
+<section class="card">
+<div class="step"><span class="num">1</span><strong>Verify test candidate and schedule</strong></div>
+<p id="s1" class="status">Not run</p><button id="verify">Verify eligibility</button><pre id="r1">Waiting for verification.</pre>
+</section>
+<section class="card">
+<div class="step"><span class="num">2</span><strong>Start isolated test attempt</strong></div>
+<p id="s2" class="status">Waiting for verification</p><button id="start" disabled>Start test attempt</button><pre id="r2">No attempt created.</pre>
+</section>
+<section class="card">
+<div class="step"><span class="num">3</span><strong>Load question bank</strong></div>
+<p id="s3" class="status">Waiting for attempt</p><button id="load" disabled>Load questions</button><pre id="r3">Questions not loaded.</pre>
+<div id="sample" hidden><hr><strong>Sample question (first question in the first subject)</strong><p id="qtext" class="question"></p><div id="choices"></div></div>
+</section>
+<section class="card">
+<div class="step"><span class="num">4</span><strong>Save one sample answer</strong></div>
+<p id="s4" class="status">Waiting for questions</p><button id="save" disabled>Save selected sample answer</button><pre id="r4">No answer saved.</pre>
+</section>
+<section class="card">
+<div class="step"><span class="num">5</span><strong>Recover saved answer from API</strong></div>
+<p id="s5" class="status">Waiting for saved answer</p><button id="recover" disabled>Check answer recovery</button><pre id="r5">Not checked.</pre>
+</section>
+<section class="card">
+<div class="step"><span class="num">6</span><strong>Submit the isolated test attempt</strong></div>
+<p id="s6" class="status">Not submitted</p><button id="submit" disabled>Submit test attempt</button><pre id="r6">Submission has not been requested.</pre>
+<p class="muted">Submission is final for this test attempt. It cannot be restarted with the same test registration.</p>
+</section>
+<section class="card">
+<strong>Overall result</strong><p id="overall" class="status">No workflow run yet.</p>
+<button class="secondary" id="copy">Copy test report</button>
+</section>
+</main>
+<script>
+const API="https://flexi-jamb-cbt-api.flexisystems2000.workers.dev";
+const REG="TEST-WISDOM-UKO-20261127";
+let token=null,questions=null,first=null,saved=false,recovered=false,submitted=false;
+const $=id=>document.getElementById(id);
+function status(id,msg,good=true){$(id).textContent=msg;$(id).className="status "+(good?"ok":"bad");}
+function show(id,v){$(id).textContent=JSON.stringify(v,null,2);}
+async function call(path,method="GET",body=null,auth=false){
+ const h={"content-type":"application/json"};if(auth&&token)h.authorization="Bearer "+token;
+ const r=await fetch(API+path,{method,headers:h,...(body===null?{}:{body:JSON.stringify(body)})});
+ let data;try{data=await r.json()}catch{data={raw:await r.text()}}
+ if(!r.ok)throw Object.assign(new Error(data.code||("HTTP "+r.status)),{data,status:r.status});
+ return data;
+}
+$("verify").onclick=async()=>{try{$("verify").disabled=true;let x=await call("/api/cbt/verify","POST",{registrationNumber:REG});show("r1",x);status("s1","PASS · "+x.code);$("start").disabled=false;$("s2").textContent="Ready";$("overall").textContent="Candidate verification passed. Start the test attempt when ready."}catch(e){show("r1",e.data||{error:e.message});status("s1","FAILED · "+e.message,false);$("verify").disabled=false}};
+$("start").onclick=async()=>{if(!$("confirm").checked){alert("Please confirm that you understand this creates a test-only attempt.");return}try{$("start").disabled=true;let x=await call("/api/cbt/start","POST",{registrationNumber:REG});token=x.token;show("r2",{...x,token:"[kept in page memory; not displayed]"});status("s2","PASS · "+x.code);$("load").disabled=false;$("s3").textContent="Ready"}catch(e){show("r2",e.data||{error:e.message});status("s2","FAILED · "+e.message,false);$("start").disabled=false}};
+$("load").onclick=async()=>{try{$("load").disabled=true;questions=await call("/api/cbt/questions","POST",{},true);show("r3",{ok:questions.ok,code:questions.code,totalSubjects:questions.totalSubjects,totalQuestions:questions.totalQuestions,subjectCounts:Object.fromEntries(Object.entries(questions.questions||{}).map(([k,v])=>[k,v.length]))});let entry=Object.entries(questions.questions||{})[0];if(!entry||!entry[1].length)throw new Error("No questions returned");first=entry[1][0];$("qtext").textContent=first.question;$("choices").innerHTML=first.options.map((v,i)=>'<label class="choice"><input type="radio" name="answer" value="'+String.fromCharCode(65+i)+'"> '+String.fromCharCode(65+i)+'. '+String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))+'</label>').join("");$("sample").hidden=false;status("s3","PASS · "+questions.totalQuestions+" questions loaded");$("save").disabled=false}catch(e){show("r3",e.data||{error:e.message});status("s3","FAILED · "+e.message,false);$("load").disabled=false}};
+$("save").onclick=async()=>{try{let choice=document.querySelector('input[name="answer"]:checked');if(!choice){alert("Select an option for the sample question first.");return}let x=await call("/api/cbt/answers","POST",{answers:[{questionId:first.id,selectedOption:choice.value}]},true);saved=true;show("r4",x);status("s4","PASS · "+x.savedCount+" answer saved");$("recover").disabled=false}catch(e){show("r4",e.data||{error:e.message});status("s4","FAILED · "+e.message,false)}};
+$("recover").onclick=async()=>{try{let x=await call("/api/cbt/answer-state","GET",null,true);let answer=x.answers?.[first.id];recovered=!!answer&&answer.selectedOption===document.querySelector('input[name="answer"]:checked')?.value;show("r5",{ok:x.ok,answeredCount:x.answeredCount,recoveredSampleAnswer:answer||null,match:recovered});if(!recovered)throw new Error("Saved sample answer was not recovered as expected");status("s5","PASS · Saved answer recovered");$("submit").disabled=false}catch(e){status("s5","FAILED · "+e.message,false);let old=$("r5").textContent;show("r5",{details:old,error:e.data||e.message})}};
+$("submit").onclick=async()=>{if(!confirm("Submit and permanently close this isolated test attempt?"))return;try{$("submit").disabled=true;let x=await call("/api/cbt/submit","POST",{},true);submitted=true;show("r6",x);status("s6","PASS · "+x.code);$("overall").textContent="WORKFLOW PASSED: verification, start, question loading, answer save, answer recovery and submission all succeeded.";$("overall").className="status ok"}catch(e){show("r6",e.data||{error:e.message});status("s6","FAILED · "+e.message,false);$("submit").disabled=false}};
+$("copy").onclick=async()=>{let t=["Flexi CBT isolated workflow report",...["s1","s2","s3","s4","s5","s6"].map(id=>$(id).textContent),$("overall").textContent].join("\n");try{await navigator.clipboard.writeText(t);alert("Report copied.")}catch{alert(t)}};
+</script>
+</body>
+</html>
