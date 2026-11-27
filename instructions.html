@@ -347,6 +347,20 @@
         Candidates are required to observe the following rules:
       </p>
 
+      <div class="declaration" style="border-color:#f59e0b;background:#fffbeb">
+        <h3 style="color:#92400e">CAMERA, MICROPHONE & RECORDING NOTICE</h3>
+        <p>
+          This examination uses your camera and microphone for remote examination supervision.
+          The examination may be monitored live by authorised Flexi Educational Consult
+          administrators, and your camera and microphone session may be recorded for
+          examination-integrity review. Recordings are restricted to authorised administrators
+          and are scheduled for deletion after 30 days. Do not proceed unless you understand
+          and agree to this monitoring. If you are under 18, a parent or legal guardian must
+          review this notice and give permission before you continue. You may contact the
+          examination administrator if you do not agree or need clarification.
+        </p>
+      </div>
+
       <ul>
         <li>
           The examination duration is <strong>50 minutes</strong>.
@@ -442,8 +456,10 @@
         <input type="checkbox" id="acknowledge">
 
         <span>
-          I have read, understood and agree to abide by the
-          examination instructions and regulations.
+          I have read and understood the examination rules and the camera,
+          microphone, live-monitoring and recording notice above. I agree to this
+          monitoring and recording for examination supervision. If I am under 18,
+          my parent or legal guardian has reviewed this notice and given permission.
         </span>
 
       </label>
@@ -1008,6 +1024,10 @@
 
       sessionStorage.setItem(
         "cbt_instructions_acknowledged",
+        "true"
+      );
+      sessionStorage.setItem(
+        "cbt_monitoring_consent",
         "true"
       );
 
