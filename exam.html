@@ -724,6 +724,7 @@ function clearWarning() {
 
 function logBrowserEvent(type, details = {}) {
   const event = {
+    eventId: crypto.randomUUID(),
     eventType: type,
     severity: ["PAGE_HIDDEN", "MEDIA_DISCONNECTED", "FULLSCREEN_EXITED"].includes(type)
       ? "warning"
@@ -737,7 +738,21 @@ function logBrowserEvent(type, details = {}) {
 
   // Persist browser monitoring events through the authenticated Cloudflare API.
   if (token && !examSubmitted) {
-    void apiRequest(API.proctorEvent, event).catch(error => {
+    void apiRequest(API.proctorEvent, event).then(data => {
+      if (data.autoSubmitted) {
+        examSubmitted = true;
+        clearInterval(timerInterval);
+        clearInterval(saveInterval);
+        clearInterval(clockSyncInterval);
+        sessionStorage.removeItem(STORAGE.token);
+        sessionStorage.removeItem(STORAGE.attempt);
+        if (mediaStream) {
+          mediaStream.getTracks().forEach(track => track.stop());
+          mediaStream = null;
+        }
+        showFatal("Your examination was automatically submitted after three separate proctoring warnings. Your saved answers have been recorded.");
+      }
+    }).catch(error => {
       console.error("[CBT PROCTOR EVENT] Could not record event:", error);
     });
   }
