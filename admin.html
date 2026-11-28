@@ -429,8 +429,9 @@ tbody tr:hover{background:#f8faf9}
           <span class="badge" id="monitorStatus">Not connected</span>
         </div>
         <div class="monitor-controls">
-          <input id="monitorBatch" maxlength="80" placeholder="Enter exact batch name">
-          <button class="btn btn-primary" id="connectMonitor">Connect</button>
+          <select id="monitorBatch" aria-label="Active examination batch"><option value="">Loading active batches…</option></select>
+          <button class="btn btn-light" id="refreshBatches">Refresh batches</button>
+          <button class="btn btn-primary" id="connectMonitor" disabled>Connect</button>
           <button class="btn btn-light" id="disconnectMonitor" disabled>Disconnect</button>
         </div>
         <div id="monitorGrid" class="monitor-grid">
@@ -699,10 +700,35 @@ function attachMonitorTrack(track, participant) {
   }
 }
 
+async function loadActiveBatches() {
+  const select = $("monitorBatch");
+  const previous = select.value;
+  $("refreshBatches").disabled = true;
+  try {
+    const data = await request("/active-batches");
+    const batches = data.batches || [];
+    select.innerHTML = '<option value="">Select an active batch…</option>' +
+      batches.map(item => '<option value="' + esc(item.name) + '">' +
+        esc(item.name) + ' (' + Number(item.activeCandidates || 0) + ' active)</option>').join("");
+    if (batches.some(item => item.name === previous)) select.value = previous;
+    if (!batches.length) select.innerHTML = '<option value="">No active batches at the moment</option>';
+    $("connectMonitor").disabled = !select.value || !!monitoringRoom;
+    if (!monitoringRoom) $("monitorStatus").textContent = batches.length ?
+      batches.length + " active batch" + (batches.length === 1 ? "" : "es") : "No active batches";
+  } catch (error) {
+    console.error("Active batch list failed:", error);
+    select.innerHTML = '<option value="">Unable to load active batches</option>';
+    $("connectMonitor").disabled = true;
+    $("monitorStatus").textContent = "Batch list unavailable";
+  } finally {
+    $("refreshBatches").disabled = false;
+  }
+}
+
 async function connectBatchMonitor() {
   const batch = $("monitorBatch").value.trim();
   if (!batch) {
-    alert("Enter the exact batch name first.");
+    alert("Select an active batch first.");
     return;
   }
   if (!window.LivekitClient?.Room) {
@@ -770,10 +796,14 @@ async function disconnectBatchMonitor() {
   $("monitorGrid").innerHTML = '<div class="empty">Disconnected from the batch.</div>';
   $("monitorStatus").textContent = "Not connected";
   $("disconnectMonitor").disabled = true;
+  $("connectMonitor").disabled = !$("monitorBatch").value;
+  loadActiveBatches();
 }
 
 $("connectMonitor").addEventListener("click", connectBatchMonitor);
 $("disconnectMonitor").addEventListener("click", disconnectBatchMonitor);
+$("refreshBatches").addEventListener("click", loadActiveBatches);
+$("monitorBatch").addEventListener("change", () => { $("connectMonitor").disabled = !$("monitorBatch").value || !!monitoringRoom; });
 
 function showPage(page) {
   document.querySelectorAll(".page").forEach(section => {
@@ -782,6 +812,7 @@ function showPage(page) {
 
   const target = $(page + "Page");
   if (target) target.classList.remove("hidden");
+  if (page === "monitoring") loadActiveBatches();
 
   document.querySelectorAll(".nav-btn[data-page]").forEach(button => {
     button.classList.toggle("active", button.dataset.page === page);
