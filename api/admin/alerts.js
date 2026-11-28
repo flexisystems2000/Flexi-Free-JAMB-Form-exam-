@@ -148,6 +148,7 @@ module.exports = async function handler(req, res) {
         eventType: item.eventType || null,
         severity: item.severity || "medium",
         message: item.message || "Examination warning",
+        details: item.rawData || {},
         status: item.status || "open",
         createdAt: toISO(item.createdAt),
         resolvedAt: toISO(item.resolvedAt),
