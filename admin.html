@@ -804,6 +804,9 @@ $("connectMonitor").addEventListener("click", connectBatchMonitor);
 $("disconnectMonitor").addEventListener("click", disconnectBatchMonitor);
 $("refreshBatches").addEventListener("click", loadActiveBatches);
 $("monitorBatch").addEventListener("change", () => { $("connectMonitor").disabled = !$("monitorBatch").value || !!monitoringRoom; });
+setInterval(() => {
+  if (!$("monitoringPage").classList.contains("hidden")) loadActiveBatches();
+}, 15000);
 
 function showPage(page) {
   document.querySelectorAll(".page").forEach(section => {
