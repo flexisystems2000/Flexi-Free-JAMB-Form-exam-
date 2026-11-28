@@ -44,7 +44,15 @@ if(p.startsWith("/api/admin/")){
 if(!await admin(e,r))return out({ok:false,code:"ADMIN_UNAUTHORIZED"},401);
 let exam=eid(e),regs,ats;
 
-if(p==="/api/admin/livekit-token"&&r.method==="POST"){
+if(p==="/api/admin/active-batches"&&r.method==="GET"){
+ let now=Date.now(),regs=await db(e,"jamb_registrations?select=firestore_id,exam_schedule,firestore_data"),eligible=new Map(regs.filter(c=>!isTest(c)).map(c=>[c.firestore_id,String(c.exam_schedule?.batch||"").trim()]).filter(x=>x[1]));
+ let attempts=await db(e,"cbt_attempts?exam_id=eq."+enc(exam)+"&status=eq.in_progress&select=candidate_id,deadline_at");
+ let counts=new Map();
+ for(let a of attempts){if(new Date(a.deadline_at).getTime()<=now)continue;let batch=eligible.get(a.candidate_id);if(batch)counts.set(batch,(counts.get(batch)||0)+1)}
+ let batches=[...counts.entries()].map(([name,activeCandidates])=>({name,activeCandidates})).sort((a,b)=>a.name.localeCompare(b.name));
+ return out({ok:true,batches,checkedAt:new Date(now).toISOString()});
+ }
+ if(p==="/api/admin/livekit-token"&&r.method==="POST"){
 let b=await r.json(),batch=String(b.batch||"").trim();
 if(!batch||batch.length>80)return out({ok:false,code:"INVALID_BATCH"},400);
 if(!e.LIVEKIT_URL||!e.LIVEKIT_API_KEY||!e.LIVEKIT_API_SECRET)return out({ok:false,code:"LIVEKIT_NOT_CONFIGURED"},503);
