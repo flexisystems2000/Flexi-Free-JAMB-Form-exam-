@@ -45,7 +45,7 @@ if(!await admin(e,r))return out({ok:false,code:"ADMIN_UNAUTHORIZED"},401);
 let exam=eid(e),regs,ats;
 
 if(p==="/api/admin/active-batches"&&r.method==="GET"){
- let now=Date.now(),regs=await db(e,"jamb_registrations?select=firestore_id,exam_schedule,firestore_data"),eligible=new Map(regs.filter(c=>!isTest(c)).map(c=>[c.firestore_id,String(c.exam_schedule?.batch||"").trim()]).filter(x=>x[1]));
+ let now=Date.now(),regs=await db(e,"jamb_registrations?select=firestore_id,exam_schedule,firestore_data"),eligible=new Map(regs.filter(c=>!isTest(c)||String(c.exam_schedule?.batch||"").trim().toLowerCase()==="test batch").map(c=>[c.firestore_id,String(c.exam_schedule?.batch||"").trim()]).filter(x=>x[1]));
  let attempts=await db(e,"cbt_attempts?exam_id=eq."+enc(exam)+"&status=eq.in_progress&select=candidate_id,deadline_at");
  let counts=new Map();
  for(let a of attempts){if(new Date(a.deadline_at).getTime()<=now)continue;let batch=eligible.get(a.candidate_id);if(batch)counts.set(batch,(counts.get(batch)||0)+1)}
