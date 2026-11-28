@@ -793,6 +793,16 @@ function alertHTML(alert) {
         ${esc(alert.message || "Examination monitoring event reported.")}
       </div>
 
+      ${alert.details && (alert.details.key || alert.details.source) ? `
+        <div class="alert-meta">
+          Detected input: ${esc(alert.details.key || alert.details.source)}
+          ${alert.details.ctrlKey ? " · Ctrl" : ""}
+          ${alert.details.shiftKey ? " · Shift" : ""}
+          ${alert.details.altKey ? " · Alt" : ""}
+          ${alert.details.metaKey ? " · Meta" : ""}
+        </div>
+      ` : ""}
+
       <div class="alert-meta">
         Candidate: ${esc(alert.candidateName || alert.candidateId || "Unknown")}
         · Registration: ${esc(alert.registrationNumber || "—")}
