@@ -54,6 +54,22 @@ const EVENTS = {
   NETWORK_RECONNECTED: {
     severity: "info",
     label: "Candidate network connection restored"
+  },
+  SCREENSHOT_SHORTCUT_DETECTED: {
+    severity: "medium",
+    label: "Candidate triggered a browser screenshot shortcut"
+  },
+  PRINT_SHORTCUT_BLOCKED: {
+    severity: "medium",
+    label: "Candidate attempted to print the examination page"
+  },
+  CONTEXT_MENU_BLOCKED: {
+    severity: "info",
+    label: "Candidate opened the browser context menu"
+  },
+  RESTRICTED_SHORTCUT_DETECTED: {
+    severity: "medium",
+    label: "Candidate used a restricted browser shortcut"
   }
 };
 
@@ -86,6 +102,31 @@ module.exports = async function handler(req, res) {
     .toUpperCase();
 
   const event = EVENTS[eventType];
+
+  const incomingDetails = req.body?.details &&
+    typeof req.body.details === "object" &&
+    !Array.isArray(req.body.details)
+      ? req.body.details
+      : {};
+
+  const eventDetails = {
+    key: typeof incomingDetails.key === "string"
+      ? incomingDetails.key.slice(0, 32)
+      : null,
+    source: typeof incomingDetails.source === "string"
+      ? incomingDetails.source.slice(0, 32)
+      : null,
+    ctrlKey: Boolean(incomingDetails.ctrlKey),
+    shiftKey: Boolean(incomingDetails.shiftKey),
+    altKey: Boolean(incomingDetails.altKey),
+    metaKey: Boolean(incomingDetails.metaKey),
+    cameraConnected: typeof incomingDetails.cameraConnected === "boolean"
+      ? incomingDetails.cameraConnected
+      : null,
+    microphoneConnected: typeof incomingDetails.microphoneConnected === "boolean"
+      ? incomingDetails.microphoneConnected
+      : null
+  };
 
   if (!event) {
     return send(res, 400, {
@@ -187,6 +228,7 @@ module.exports = async function handler(req, res) {
         eventType,
         severity: event.severity,
         message: event.label,
+        rawData: eventDetails,
         status: "open",
         createdAt: stamp,
         resolvedAt: null,
