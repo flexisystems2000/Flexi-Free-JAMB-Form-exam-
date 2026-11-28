@@ -363,6 +363,10 @@ main {
   #timer { font-size:21px; }
   .navigation button { padding:10px; font-size:12px; }
 }
+@media print {
+  html, body { display:none !important; }
+}
+
 </style>
 </head>
 
@@ -513,7 +517,8 @@ const API = {
   questions: "/api/cbt/questions",
   answers: "/api/cbt/answers",
   answerState: "/api/cbt/answer-state",
-  submit: "/api/cbt/submit"
+  submit: "/api/cbt/submit",
+  proctorEvent: "/api/cbt/proctor-event"
 };
 
 const STORAGE = {
@@ -664,13 +669,61 @@ function clearWarning() {
   $("warningNotice").textContent = "";
 }
 
+function sendProctorEvent(eventType, details = {}) {
+  if (!token || examSubmitted) return;
+
+  fetch(API.proctorEvent, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    cache: "no-store",
+    keepalive: true,
+    body: JSON.stringify({ eventType, details })
+  }).then(async response => {
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.ok === false) {
+      throw new Error(result.code || "PROCTOR_EVENT_FAILED");
+    }
+  }).catch(error => {
+    console.warn("[CBT PROCTOR EVENT]", eventType, error.message);
+  });
+}
+
 function logBrowserEvent(type, details = {}) {
-  // Local diagnostic signal only.
-  // Backend audit logging and admin alerts are separate pending integrations.
   console.info("[CBT EVENT]", type, {
     at: new Date().toISOString(),
     details
   });
+
+  const directEvents = {
+    PAGE_HIDDEN: "TAB_HIDDEN",
+    PAGE_VISIBLE: "TAB_VISIBLE",
+    FULLSCREEN_EXITED: "FULLSCREEN_EXITED",
+    NETWORK_OFFLINE: "NETWORK_DISCONNECTED",
+    NETWORK_ONLINE: "NETWORK_RECONNECTED",
+    SCREENSHOT_SHORTCUT_DETECTED: "SCREENSHOT_SHORTCUT_DETECTED",
+    PRINT_SHORTCUT_BLOCKED: "PRINT_SHORTCUT_BLOCKED",
+    CONTEXT_MENU_BLOCKED: "CONTEXT_MENU_BLOCKED",
+    RESTRICTED_SHORTCUT: "RESTRICTED_SHORTCUT_DETECTED"
+  };
+
+  if (type === "MEDIA_DISCONNECTED" || type === "MEDIA_RECONNECTED") {
+    const suffix = type === "MEDIA_DISCONNECTED" ? "DISCONNECTED" : "RECONNECTED";
+    if (details.cameraConnected === false ||
+        (type === "MEDIA_RECONNECTED" && details.cameraConnected === true)) {
+      sendProctorEvent(`CAMERA_${suffix}`, details);
+    }
+    if (details.microphoneConnected === false ||
+        (type === "MEDIA_RECONNECTED" && details.microphoneConnected === true)) {
+      sendProctorEvent(`MICROPHONE_${suffix}`, details);
+    }
+    return;
+  }
+
+  const eventType = directEvents[type];
+  if (eventType) sendProctorEvent(eventType, details);
 }
 
 function updateMediaStatus() {
@@ -1447,24 +1500,18 @@ function setupBrowserMonitoring() {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       logBrowserEvent("PAGE_HIDDEN");
-
       showWarning(
         "You have left the examination page. Return immediately. Your timer continues."
       );
-
     } else {
       logBrowserEvent("PAGE_VISIBLE");
-
-      if (!mediaWarning) {
-        clearWarning();
-      }
+      if (!mediaWarning) clearWarning();
     }
   });
 
   document.addEventListener("fullscreenchange", () => {
     if (!document.fullscreenElement && !examSubmitted) {
       logBrowserEvent("FULLSCREEN_EXITED");
-
       showWarning(
         "Fullscreen mode was exited. Please return to fullscreen."
       );
@@ -1481,6 +1528,7 @@ function setupBrowserMonitoring() {
 
   document.addEventListener("contextmenu", event => {
     event.preventDefault();
+    logBrowserEvent("CONTEXT_MENU_BLOCKED");
   });
 
   document.addEventListener("copy", event => event.preventDefault());
@@ -1488,7 +1536,38 @@ function setupBrowserMonitoring() {
   document.addEventListener("paste", event => event.preventDefault());
 
   document.addEventListener("keydown", event => {
-    const key = event.key.toLowerCase();
+    const key = String(event.key || "").toLowerCase();
+    const modifier = event.ctrlKey || event.metaKey;
+
+    const screenshotShortcut =
+      event.key === "PrintScreen" ||
+      (modifier && event.shiftKey && key === "s") ||
+      (event.metaKey && event.shiftKey && ["3", "4", "5"].includes(key));
+
+    if (screenshotShortcut) {
+      event.preventDefault();
+      logBrowserEvent("SCREENSHOT_SHORTCUT_DETECTED", {
+        key: event.key,
+        ctrlKey: event.ctrlKey,
+        shiftKey: event.shiftKey,
+        metaKey: event.metaKey
+      });
+      showWarning(
+        "Screenshot shortcuts are not permitted during the examination. This attempt has been recorded."
+      );
+      return;
+    }
+
+    if (modifier && key === "p") {
+      event.preventDefault();
+      logBrowserEvent("PRINT_SHORTCUT_BLOCKED", {
+        key: event.key,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey
+      });
+      showWarning("Printing is disabled during the examination. This attempt has been recorded.");
+      return;
+    }
 
     if (
       event.key === "F12" ||
@@ -1501,6 +1580,11 @@ function setupBrowserMonitoring() {
     }
   });
 
+  window.addEventListener("beforeprint", () => {
+    logBrowserEvent("PRINT_SHORTCUT_BLOCKED", { source: "beforeprint" });
+    showWarning("Printing is disabled during the examination.");
+  });
+
   window.addEventListener("online", () => {
     showMessage("Internet connection restored.");
     logBrowserEvent("NETWORK_ONLINE");
@@ -1510,7 +1594,6 @@ function setupBrowserMonitoring() {
     showWarning(
       "Internet connection lost. Your examination timer continues."
     );
-
     logBrowserEvent("NETWORK_OFFLINE");
   });
 
