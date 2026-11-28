@@ -512,7 +512,7 @@
           <div class="stat-card">
             <div class="stat-label">Average Score</div>
             <div class="stat-value" id="averageScore">0</div>
-            <div class="stat-note">Out of 160</div>
+            <div class="stat-note">Out of 400</div>
           </div>
 
           <div class="stat-card">
@@ -534,9 +534,9 @@
           </div>
 
           <div class="stat-card">
-            <div class="stat-label">Results Published</div>
+            <div class="stat-label">Results With Scores</div>
             <div class="stat-value" id="resultCount">0</div>
-            <div class="stat-note">Submitted attempts</div>
+            <div class="stat-note">Scored submitted and expired attempts</div>
           </div>
         </section>
 
@@ -544,7 +544,7 @@
           <div class="panel-heading">
             <div>
               <h2>Subject Performance</h2>
-              <p>Average performance across submitted candidates.</p>
+              <p>Average performance across scored candidates.</p>
             </div>
           </div>
 
@@ -557,7 +557,7 @@
           <div class="panel-heading">
             <div>
               <h2>Candidate Rankings</h2>
-              <p>Submitted candidates ranked by total score.</p>
+              <p>Submitted and expired candidates with saved scores, ranked by total score.</p>
             </div>
 
             <span class="muted" id="candidateCount">0 candidates</span>
@@ -581,7 +581,7 @@
                   <th>BATCH</th>
                   <th>SCORE</th>
                   <th>PERCENTAGE</th>
-                  <th>SUBMITTED</th>
+                  <th>STATUS / TIME</th>
                   <th>ACTION</th>
                 </tr>
               </thead>
@@ -855,7 +855,7 @@
         tbody.innerHTML = `
           <tr>
             <td colspan="7" class="empty">
-              No submitted candidate results found.
+              No scored candidate results found.
             </td>
           </tr>
         `;
@@ -879,12 +879,12 @@
           <td>${escapeHTML(candidate.batch || "—")}</td>
 
           <td class="score">
-            ${formatNumber(candidate.totalScore)}/160
+            ${formatNumber(candidate.totalScore)}/${formatNumber(candidate.maximumScore || 400)}
           </td>
 
           <td>${formatNumber(candidate.percentage, 2)}%</td>
 
-          <td>${escapeHTML(formatDate(candidate.submittedAt))}</td>
+          <td>${escapeHTML((candidate.status || "—").toUpperCase())}<div class="candidate-reg">${escapeHTML(formatDate(candidate.completedAt || candidate.submittedAt || candidate.expiredAt))}</div></td>
 
           <td>
             <button class="view-btn" data-candidate-id="${escapeHTML(candidate.candidateId || "")}">
@@ -971,16 +971,16 @@
           </div>
 
           <div>
-            <div class="detail-label">Submitted At</div>
+            <div class="detail-label">${escapeHTML((candidate.status || "Completion").toUpperCase())} At</div>
             <div class="detail-value">
-              ${escapeHTML(formatDate(candidate.submittedAt))}
+              ${escapeHTML(formatDate(candidate.completedAt || candidate.submittedAt || candidate.expiredAt))}
             </div>
           </div>
 
           <div>
             <div class="detail-label">Total Score</div>
             <div class="detail-value green-text">
-              ${formatNumber(candidate.totalScore)}/160
+              ${formatNumber(candidate.totalScore)}/${formatNumber(candidate.maximumScore || 400)}
             </div>
           </div>
 
@@ -1021,7 +1021,7 @@
 
     $("exportButton").addEventListener("click", () => {
       if (!allCandidates.length) {
-        alert("There are no submitted results to export.");
+        alert("There are no scored results to export.");
         return;
       }
 
@@ -1032,7 +1032,7 @@
         "Batch",
         "Total Score",
         "Percentage",
-        "Submitted At"
+        "Status","Completed At"
       ];
 
       const rows = allCandidates.map((candidate, index) => [
@@ -1042,7 +1042,8 @@
         candidate.batch,
         candidate.totalScore,
         candidate.percentage,
-        candidate.submittedAt
+        candidate.status,
+        candidate.completedAt || candidate.submittedAt || candidate.expiredAt
       ]);
 
       function csvCell(value) {
